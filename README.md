@@ -43,7 +43,7 @@ A complete system to archive, process, and search video/audio interviews with th
 
 ```bash
 # 1. Clone the repository
-git clone git@github.com:theirstory/ts-portal.git
+git clone https://github.com/theirstory/ts-portal.git
 cd ts-portal
 
 # 2. Copy config and env files from example
@@ -106,7 +106,7 @@ Note: If needed, you can skip subfolders: JSON files placed directly under `json
 # 1. Add your collection subfolders and interview JSON files under:
 json/interviews/
 
-# 2. Manual import
+# 2. Open a new terminal in the ts-portal root folder and run the manual import
 docker compose run --rm weaviate-init
 ```
 
@@ -143,11 +143,12 @@ On the server terminal (remote host):
 ```bash
 # Install git and clone repo (one time)
 sudo apt update && sudo apt install -y git
-git clone git@github.com:theirstory/ts-portal.git
+git clone https://github.com/theirstory/ts-portal.git
 cd ts-portal
 
 # Install Docker once (Ubuntu)
 sudo bash scripts/deploy/setup-docker-ubuntu.sh
+# If prompted about /etc/ssh/sshd_config, choose: keep the local version currently installed
 
 # Deploy/update
 ./scripts/deploy/deploy-prod.sh
