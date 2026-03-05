@@ -135,6 +135,18 @@ export const AppTopBar = () => {
                     COLLECTIONS
                   </Link>
                 )}
+                <Link
+                  href="/chat"
+                  style={{
+                    color: config.theme.colors.primary.contrastText,
+                    textDecoration: 'none',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    minHeight: 0,
+                  }}>
+                  CHAT
+                </Link>
                 {!isStoryPage && (
                   <Tooltip title={isTopBarCollapsed ? 'Expand' : 'Collapse'}>
                     <IconButton
@@ -223,6 +235,19 @@ export const AppTopBar = () => {
                   </Link>
                 </Box>
               )}
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <Link
+                  href="/chat"
+                  style={{
+                    color: config.theme.colors.primary.contrastText,
+                    textDecoration: 'none',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                  }}>
+                  CHAT
+                </Link>
+              </Box>
               <Typography
                 variant="caption"
                 color={config.theme.colors.primary.contrastText}
