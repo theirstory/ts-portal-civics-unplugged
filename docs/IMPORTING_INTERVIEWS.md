@@ -166,8 +166,7 @@ For each interview JSON file:
 
 **Hybrid Chunking:**
 
-- Splits transcript into ~30-second time windows
-- Extends to sentence boundaries (up to 3s lookahead)
+- Splits transcript into chunks
 - Merges small chunks (<10 words)
 - Caps maximum chunk size (200 words)
 
@@ -175,11 +174,10 @@ For each interview JSON file:
 
 - Generates 384-dim vectors using sentence-transformers
 - One vector per chunk for semantic search
-- Uses `paraphrase-multilingual-MiniLM-L12-v2` model
 
 **Named Entity Recognition:**
 
-- Extracts entities using GLiNER zero-shot model
+- Extracts entities using GLiNER
 - Identifies: person, organization, location, date, event, technology
 - Maps entities to timestamps in transcript
 - Stores with confidence scores
