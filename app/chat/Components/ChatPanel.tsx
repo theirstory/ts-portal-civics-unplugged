@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Box, TextField, IconButton, Typography, Button, InputAdornment } from '@mui/material';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { Box, TextField, IconButton, Typography, Button, InputAdornment, Tooltip } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { useChatStore } from '@/app/stores/useChatStore';
+import { ChatMessage as ChatMessageType } from '@/types/chat';
 import { ChatMessage } from './ChatMessage';
 import { colors } from '@/lib/theme';
 
@@ -12,16 +17,46 @@ const STARTER_QUESTIONS = [
   'What are common themes across the collection?',
 ];
 
+type QAPair = { userMsg: ChatMessageType; assistantMsg: ChatMessageType };
+
 export const ChatPanel = () => {
   const [input, setInput] = useState('');
   const messages = useChatStore((s) => s.messages);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const sendMessage = useChatStore((s) => s.sendMessage);
-  const hoveredCitationIndex = useChatStore((s) => s.hoveredCitationIndex);
-  const hoveredFromPanel = useChatStore((s) => s.hoveredFromPanel);
+  const clearMessages = useChatStore((s) => s.clearMessages);
+  const showSourcesForMessage = useChatStore((s) => s.showSourcesForMessage);
+  const scrollToCitationIndex = useChatStore((s) => s.scrollToCitationIndex);
+  const clearScrollToCitation = useChatStore((s) => s.clearScrollToCitation);
+  const activeAssistantMessageId = useChatStore((s) => s.activeAssistantMessageId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const pairRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const isEmpty = messages.length === 0;
+
+  // Group messages into Q&A pairs
+  const pairs = useMemo<QAPair[]>(() => {
+    const result: QAPair[] = [];
+    for (let i = 0; i < messages.length; i += 2) {
+      if (messages[i]?.role === 'user' && messages[i + 1]?.role === 'assistant') {
+        result.push({ userMsg: messages[i], assistantMsg: messages[i + 1] });
+      }
+    }
+    return result;
+  }, [messages]);
+
+  const navigateToPair = useCallback((pairIndex: number) => {
+    const pair = pairs[pairIndex];
+    if (!pair) return;
+    const el = pairRefs.current.get(pair.userMsg.id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    // Update sources panel
+    if (pair.assistantMsg.citations && pair.assistantMsg.citations.length > 0) {
+      showSourcesForMessage(pair.assistantMsg.id);
+    }
+  }, [pairs, showSourcesForMessage]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -31,14 +66,21 @@ export const ChatPanel = () => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Scroll to hovered citation chip in chat only when hovering from the side panel
+  // Scroll to citation in chat when triggered from side panel — scoped to the correct Q&A pair
   useEffect(() => {
-    if (hoveredCitationIndex === null || !hoveredFromPanel || !messagesContainerRef.current) return;
-    const el = messagesContainerRef.current.querySelector(`[data-citation-index="${hoveredCitationIndex}"]`);
+    if (scrollToCitationIndex === null || !messagesContainerRef.current) return;
+    // Scope to the active assistant message's container so we scroll to the right Q&A pair
+    let scope: Element = messagesContainerRef.current;
+    if (activeAssistantMessageId) {
+      const msgScope = messagesContainerRef.current.querySelector(`[data-assistant-message-id="${activeAssistantMessageId}"]`);
+      if (msgScope) scope = msgScope;
+    }
+    const el = scope.querySelector(`[data-citation-index="${scrollToCitationIndex}"]`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [hoveredCitationIndex, hoveredFromPanel]);
+    clearScrollToCitation();
+  }, [scrollToCitationIndex, clearScrollToCitation, activeAssistantMessageId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,6 +220,23 @@ export const ChatPanel = () => {
         width: '100%',
         px: { xs: 2, md: 3 },
       }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 1.5, flexShrink: 0 }}>
+        <Tooltip title="Clear conversation">
+          <Button
+            size="small"
+            startIcon={<DeleteOutlineIcon sx={{ fontSize: 16 }} />}
+            onClick={clearMessages}
+            disabled={isStreaming}
+            sx={{
+              textTransform: 'none',
+              fontSize: '0.8rem',
+              color: colors.text.secondary,
+              '&:hover': { color: colors.error.main, bgcolor: colors.error.light + '1a' },
+            }}>
+            Clear chat
+          </Button>
+        </Tooltip>
+      </Box>
       <Box
         ref={messagesContainerRef}
         sx={{
@@ -188,8 +247,83 @@ export const ChatPanel = () => {
           flexDirection: 'column',
           gap: 2,
         }}>
-        {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
+        {pairs.map((pair, pairIndex) => (
+          <Box
+            key={pair.userMsg.id}
+            ref={(el: HTMLDivElement | null) => {
+              if (el) pairRefs.current.set(pair.userMsg.id, el);
+              else pairRefs.current.delete(pair.userMsg.id);
+            }}>
+            {/* Sticky user prompt */}
+            <Box
+              sx={{
+                position: 'sticky',
+                top: 0,
+                zIndex: 10,
+                pt: 1,
+                pb: 0.5,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-end',
+              }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end', width: '100%' }}>
+                {pairs.length > 1 && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+                    <IconButton
+                      size="small"
+                      disabled={pairIndex === 0}
+                      onClick={() => navigateToPair(pairIndex - 1)}
+                      sx={{ p: 0, color: colors.text.secondary, '&:hover': { color: colors.primary.main } }}>
+                      <KeyboardArrowUpIcon sx={{ fontSize: 20 }} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      disabled={pairIndex === pairs.length - 1}
+                      onClick={() => navigateToPair(pairIndex + 1)}
+                      sx={{ p: 0, color: colors.text.secondary, '&:hover': { color: colors.primary.main } }}>
+                      <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />
+                    </IconButton>
+                  </Box>
+                )}
+                <Box
+                  sx={{
+                    maxWidth: { xs: '85%', md: '70%' },
+                    px: 2,
+                    py: 1,
+                    borderRadius: 2,
+                    bgcolor: colors.primary.main,
+                    color: colors.primary.contrastText,
+                    fontSize: '0.875rem',
+                    lineHeight: 1.5,
+                    boxShadow: `0 2px 8px ${colors.common.shadow}`,
+                  }}>
+                  {pair.userMsg.content}
+                </Box>
+              </Box>
+              {pair.assistantMsg.citations && pair.assistantMsg.citations.length > 0 && (
+                <Button
+                  size="small"
+                  startIcon={<FormatListBulletedIcon sx={{ fontSize: 14 }} />}
+                  onClick={() => showSourcesForMessage(pair.assistantMsg.id)}
+                  sx={{
+                    textTransform: 'none',
+                    fontSize: '0.75rem',
+                    color: colors.text.secondary,
+                    py: 0.25,
+                    px: 1,
+                    minHeight: 0,
+                    mt: 0.5,
+                    '&:hover': { color: colors.primary.main },
+                  }}>
+                  View {pair.assistantMsg.citations.length} sources
+                </Button>
+              )}
+            </Box>
+            {/* Assistant response */}
+            <Box sx={{ pt: 1.5 }} data-assistant-message-id={pair.assistantMsg.id}>
+              <ChatMessage message={pair.assistantMsg} />
+            </Box>
+          </Box>
         ))}
         <div ref={messagesEndRef} />
       </Box>

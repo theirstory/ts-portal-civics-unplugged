@@ -43,12 +43,13 @@ export const TextSelectionPopover = ({ containerRef }: Props) => {
       if (!range) return;
 
       const rect = range.getBoundingClientRect();
-      const containerRect = containerRef.current?.getBoundingClientRect();
-      if (!containerRect) return;
+      const container = containerRef.current;
+      const containerRect = container?.getBoundingClientRect();
+      if (!containerRect || !container) return;
 
       setPosition({
-        top: rect.top - containerRect.top - 40,
-        left: rect.left - containerRect.left + rect.width / 2,
+        top: rect.top - containerRect.top + container.scrollTop - 40,
+        left: rect.left - containerRect.left + container.scrollLeft + rect.width / 2,
       });
       setSelectedText(text);
     }, 10);

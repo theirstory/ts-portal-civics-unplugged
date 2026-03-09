@@ -84,6 +84,7 @@ export const ChatMessage = memo(({ message }: Props) => {
           <ChatMessageContent
             content={message.content}
             citations={message.citations}
+            messageId={message.id}
           />
         )}
       </Box>

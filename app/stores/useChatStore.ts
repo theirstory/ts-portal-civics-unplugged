@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { devtools } from 'zustand/middleware';
+import { devtools, persist } from 'zustand/middleware';
 import { ChatMessage, Citation, ChatStreamChunk } from '@/types/chat';
 
 type SidePanelMode = 'hidden' | 'recording' | 'search' | 'transcript';
@@ -19,6 +19,10 @@ type ChatStore = {
   citationOpenedViaChip: boolean;
   hoveredCitationIndex: number | null;
   hoveredFromPanel: boolean;
+  activePromptText: string;
+  sidePanelDetailView: boolean;
+  scrollToCitationIndex: number | null;
+  activeAssistantMessageId: string | null;
 
   sendMessage: (content: string) => Promise<void>;
   setActiveCitation: (citation: Citation, siblings?: Citation[]) => void;
@@ -29,15 +33,20 @@ type ChatStore = {
   clearMessages: () => void;
   openTranscript: (citation: Citation) => void;
   goBack: () => void;
+  showSourcesForMessage: (assistantMessageId: string) => void;
+  setSidePanelDetailView: (detail: boolean) => void;
+  scrollToCitation: (index: number) => void;
+  clearScrollToCitation: () => void;
 };
 
-let messageIdCounter = 0;
+let messageIdCounter = Date.now();
 function nextId(): string {
-  return `msg-${++messageIdCounter}-${Date.now()}`;
+  return `msg-${++messageIdCounter}`;
 }
 
 export const useChatStore = create<ChatStore>()(
   devtools(
+    persist(
     (set, get) => ({
       messages: [],
       isStreaming: false,
@@ -52,6 +61,10 @@ export const useChatStore = create<ChatStore>()(
       citationOpenedViaChip: false,
       hoveredCitationIndex: null,
       hoveredFromPanel: false,
+      activePromptText: '',
+      sidePanelDetailView: false,
+      scrollToCitationIndex: null,
+      activeAssistantMessageId: null,
 
       sendMessage: async (content: string) => {
         const userMessage: ChatMessage = {
@@ -148,9 +161,14 @@ export const useChatStore = create<ChatStore>()(
                         msgs[msgs.length - 1] = { ...last, citations };
                       }
 
+                      // Normalize comma-separated citations like [41, 49] → [41][49]
+                      let responseText = (last?.content ?? '').replace(
+                        /\[(\d+(?:\s*,\s*\d+)+)\]/g,
+                        (_, nums: string) => nums.split(',').map((n: string) => `[${n.trim()}]`).join(''),
+                      );
+
                       // Filter to only citations actually referenced in the response,
                       // then renumber sequentially (1, 2, 3...) in order of first appearance
-                      let responseText = last?.content ?? '';
                       const citedIndexesOrdered: number[] = [];
                       const seenIndexes = new Set<number>();
                       const citationPattern = /\[(\d+)\]/g;
@@ -199,6 +217,9 @@ export const useChatStore = create<ChatStore>()(
                               activeCitationSiblings: renumberedCitations,
                               sidePanelMode: 'recording' as const,
                               citationOpenedViaChip: false,
+                              activePromptText: content,
+                              sidePanelDetailView: false,
+                              activeAssistantMessageId: assistantMessage.id,
                             }
                           : {}),
                       };
@@ -235,17 +256,35 @@ export const useChatStore = create<ChatStore>()(
         }
       },
 
-      setActiveCitation: (citation: Citation, siblings?: Citation[]) =>
-        set(
-          {
-            activeCitation: citation,
-            sidePanelMode: 'recording',
-            activeCitationSiblings: siblings ?? [],
-            citationOpenedViaChip: true,
-          },
-          false,
-          'setActiveCitation',
-        ),
+      setActiveCitation: (citation: Citation, siblings?: Citation[]) => {
+        const msgs = get().messages;
+        let promptText = get().activePromptText;
+        let assistantMsgId = get().activeAssistantMessageId;
+        // Find the assistant message and prompt text for this citation's siblings
+        if (siblings && siblings.length > 0) {
+          for (let i = 0; i < msgs.length; i++) {
+            const msg = msgs[i];
+            if (msg.role === 'assistant' && msg.citations && msg.citations.length === siblings.length &&
+                msg.citations[0]?.theirstoryId === siblings[0]?.theirstoryId &&
+                Math.abs((msg.citations[0]?.startTime ?? -1) - (siblings[0]?.startTime ?? -2)) < 0.01) {
+              assistantMsgId = msg.id;
+              for (let j = i - 1; j >= 0; j--) {
+                if (msgs[j].role === 'user') { promptText = msgs[j].content; break; }
+              }
+              break;
+            }
+          }
+        }
+        set({
+          activeCitation: citation,
+          sidePanelMode: 'recording',
+          activeCitationSiblings: siblings ?? [],
+          citationOpenedViaChip: true,
+          activePromptText: promptText,
+          sidePanelDetailView: true,
+          activeAssistantMessageId: assistantMsgId,
+        }, false, 'setActiveCitation');
+      },
 
       setHoveredCitationIndex: (index: number | null, fromPanel?: boolean) =>
         set({ hoveredCitationIndex: index, hoveredFromPanel: fromPanel ?? false }, false, 'setHoveredCitationIndex'),
@@ -259,6 +298,9 @@ export const useChatStore = create<ChatStore>()(
             transcriptCitation: null,
             previousMode: null,
             activeCitationSiblings: [],
+            activePromptText: '',
+            sidePanelDetailView: false,
+            activeAssistantMessageId: null,
           },
           false,
           'closeSidePanel',
@@ -298,6 +340,9 @@ export const useChatStore = create<ChatStore>()(
             transcriptCitation: null,
             previousMode: null,
             activeCitationSiblings: [],
+            activePromptText: '',
+            sidePanelDetailView: false,
+            activeAssistantMessageId: null,
           },
           false,
           'clearMessages',
@@ -324,7 +369,43 @@ export const useChatStore = create<ChatStore>()(
           false,
           'goBack',
         ),
+
+      showSourcesForMessage: (assistantMessageId: string) => {
+        const msgs = get().messages;
+        const msgIdx = msgs.findIndex((m) => m.id === assistantMessageId);
+        if (msgIdx === -1) return;
+        const msg = msgs[msgIdx];
+        const citations = msg.citations ?? [];
+        if (citations.length === 0) return;
+        let promptText = '';
+        for (let j = msgIdx - 1; j >= 0; j--) {
+          if (msgs[j].role === 'user') { promptText = msgs[j].content; break; }
+        }
+        set({
+          activeCitation: citations[0],
+          activeCitationSiblings: citations,
+          sidePanelMode: 'recording',
+          citationOpenedViaChip: false,
+          activePromptText: promptText,
+          sidePanelDetailView: false,
+          activeAssistantMessageId: assistantMessageId,
+        }, false, 'showSourcesForMessage');
+      },
+
+      setSidePanelDetailView: (detail: boolean) =>
+        set({ sidePanelDetailView: detail }, false, 'setSidePanelDetailView'),
+
+      scrollToCitation: (index: number) =>
+        set({ scrollToCitationIndex: index }, false, 'scrollToCitation'),
+
+      clearScrollToCitation: () =>
+        set({ scrollToCitationIndex: null }, false, 'clearScrollToCitation'),
     }),
+    {
+      name: 'chat-store',
+      partialize: (state) => ({ messages: state.messages }),
+    },
+    ),
     { name: 'Chat Store' },
   ),
 );

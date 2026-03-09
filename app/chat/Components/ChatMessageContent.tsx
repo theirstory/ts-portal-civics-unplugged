@@ -9,9 +9,10 @@ import { ChatCitationChip } from './ChatCitationChip';
 type Props = {
   content: string;
   citations?: Citation[];
+  messageId?: string;
 };
 
-export const ChatMessageContent = ({ content, citations }: Props) => {
+export const ChatMessageContent = ({ content, citations, messageId }: Props) => {
   const citationMap = useMemo(() => {
     const map = new Map<number, Citation>();
     citations?.forEach((c) => map.set(c.index, c));
@@ -27,7 +28,7 @@ export const ChatMessageContent = ({ content, citations }: Props) => {
         const index = parseInt(match[1], 10);
         const citation = citationMap.get(index);
         if (citation) {
-          return <ChatCitationChip key={i} citation={citation} siblings={citations} />;
+          return <ChatCitationChip key={i} citation={citation} siblings={citations} messageId={messageId} />;
         }
       }
       return <React.Fragment key={i}>{part}</React.Fragment>;

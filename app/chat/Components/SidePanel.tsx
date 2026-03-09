@@ -21,13 +21,12 @@ export const SidePanel = () => {
   const activeCitation = useChatStore((s) => s.activeCitation);
   const transcriptCitation = useChatStore((s) => s.transcriptCitation);
   const selectionSearchType = useChatStore((s) => s.selectionSearchType);
+  const activePromptText = useChatStore((s) => s.activePromptText);
 
   const getHeaderTitle = () => {
     switch (sidePanelMode) {
-      case 'recording': {
-        const indexPrefix = activeCitation ? `[${activeCitation.index}] ` : '';
-        return `${indexPrefix}${activeCitation?.interviewTitle ?? ''}`;
-      }
+      case 'recording':
+        return activePromptText || activeCitation?.interviewTitle || '';
       case 'transcript': {
         const citation = transcriptCitation ?? activeCitation;
         const indexPrefix = citation ? `[${citation.index}] ` : '';

@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { Box, Typography, Button, Tab, Tabs, TextField, InputAdornment } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Tooltip, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArticleIcon from '@mui/icons-material/Article';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchIcon from '@mui/icons-material/Search';
+import FolderIcon from '@mui/icons-material/Folder';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import MuxPlayer from '@mux/mux-player-react';
 import MuxPlayerElement from '@mux/mux-player';
 import { useChatStore } from '@/app/stores/useChatStore';
@@ -135,25 +137,138 @@ function groupByRecording(citations: Citation[]): RecordingGroup[] {
   });
 }
 
-const CitationBadge = ({ index, isChapter }: { index: number; isChapter: boolean }) => (
-  <Box
-    sx={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      bgcolor: isChapter ? CHAPTER_COLOR : CLIP_COLOR,
-      color: colors.primary.contrastText,
-      fontWeight: 700,
-      fontSize: '0.7rem',
-      borderRadius: '4px',
-      minWidth: 20,
-      height: 20,
-      flexShrink: 0,
-      px: 0.4,
-    }}>
-    {index}
-  </Box>
+const CitationBadge = ({ index, isChapter, onClick }: { index: number; isChapter: boolean; onClick?: (e: React.MouseEvent) => void }) => (
+  <Tooltip title={onClick ? 'Scroll to citation in chat' : ''}>
+    <Box
+      onClick={onClick}
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: isChapter ? CHAPTER_COLOR : CLIP_COLOR,
+        color: colors.primary.contrastText,
+        fontWeight: 700,
+        fontSize: '0.7rem',
+        borderRadius: '4px',
+        minWidth: 20,
+        height: 20,
+        flexShrink: 0,
+        px: 0.4,
+        ...(onClick && {
+          cursor: 'pointer',
+          transition: 'transform 0.15s',
+          '&:hover': { transform: 'scale(1.2)', boxShadow: `0 0 0 2px ${colors.background.paper}, 0 0 0 3px ${isChapter ? CHAPTER_COLOR : CLIP_COLOR}` },
+        }),
+      }}>
+      {index}
+    </Box>
+  </Tooltip>
 );
+
+/** Numbered list view — sources sorted by citation number with thumbnails */
+const NumberedSourcesView = ({
+  citations,
+  filterTerm,
+  onSelectCitation,
+}: {
+  citations: Citation[];
+  filterTerm: string;
+  onSelectCitation: (c: Citation) => void;
+}) => {
+  const sorted = useMemo(() => [...citations].sort((a, b) => a.index - b.index), [citations]);
+  const hoveredCitationIndex = useChatStore((s) => s.hoveredCitationIndex);
+  const hoveredFromPanel = useChatStore((s) => s.hoveredFromPanel);
+  const setHoveredCitationIndex = useChatStore((s) => s.setHoveredCitationIndex);
+  const scrollToCitation = useChatStore((s) => s.scrollToCitation);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to hovered citation when hovering a chip in chat
+  useEffect(() => {
+    if (hoveredCitationIndex === null || hoveredFromPanel || !containerRef.current) return;
+    const el = containerRef.current.querySelector(`[data-citation-index="${hoveredCitationIndex}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [hoveredCitationIndex, hoveredFromPanel]);
+
+  if (citations.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 3, textAlign: 'center' }}>
+        No sources match your filter.
+      </Typography>
+    );
+  }
+
+  const highlightSx = (index: number) => ({
+    ...(hoveredCitationIndex === index && {
+      bgcolor: `${colors.primary.main}14`,
+      boxShadow: `inset 3px 0 0 ${colors.primary.main}`,
+    }),
+  });
+
+  return (
+    <Box ref={containerRef}>
+      {sorted.map((citation) => {
+        const isChapter = !!citation.isChapterSynopsis;
+        const accentColor = isChapter ? CHAPTER_COLOR : CLIP_COLOR;
+        const playbackId = getMuxPlaybackId(citation.videoUrl);
+        const thumbnailUrl = playbackId && !citation.isAudioFile
+          ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=crop&time=${Math.floor(citation.startTime)}`
+          : null;
+
+        return (
+          <Box
+            key={`num-${citation.index}`}
+            data-citation-index={citation.index}
+            onClick={() => onSelectCitation(citation)}
+            onMouseEnter={() => setHoveredCitationIndex(citation.index, true)}
+            onMouseLeave={() => setHoveredCitationIndex(null)}
+            sx={{
+              display: 'flex',
+              gap: 1.5,
+              px: 2,
+              py: 1.25,
+              cursor: 'pointer',
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              borderLeft: `3px solid ${accentColor}`,
+              '&:hover': { bgcolor: colors.grey[50] },
+              transition: 'all 0.15s',
+              ...highlightSx(citation.index),
+            }}>
+            {/* Thumbnail */}
+            {thumbnailUrl ? (
+              <Box
+                component="img"
+                src={thumbnailUrl}
+                alt={citation.interviewTitle}
+                sx={{ width: 64, aspectRatio: '16/9', objectFit: 'cover', borderRadius: 1, bgcolor: colors.grey[200], flexShrink: 0, alignSelf: 'flex-start', mt: 0.25 }}
+              />
+            ) : (
+              <Box sx={{ width: 64, aspectRatio: '16/9', bgcolor: colors.grey[200], borderRadius: 1, flexShrink: 0, alignSelf: 'flex-start', mt: 0.25 }} />
+            )}
+            {/* Content */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                <CitationBadge index={citation.index} isChapter={isChapter} onClick={(e) => { e.stopPropagation(); scrollToCitation(citation.index); }} />
+                <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }} noWrap>
+                  {isChapter
+                    ? <>{highlightSearchText(citation.interviewTitle, filterTerm)} &middot; {highlightSearchText(citation.sectionTitle, filterTerm)}</>
+                    : <>{highlightSearchText(citation.speaker, filterTerm)} &middot; {highlightSearchText(citation.sectionTitle, filterTerm)}</>
+                  }
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                  {formatTime(citation.startTime)}–{formatTime(citation.endTime)}
+                </Typography>
+              </Box>
+              <ExpandableText text={citation.transcription} highlight={filterTerm} />
+            </Box>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+};
 
 const GroupedSourcesView = ({
   citations,
@@ -169,17 +284,19 @@ const GroupedSourcesView = ({
   const groups = useMemo(() => groupByRecording(citations), [citations]);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const hoveredCitationIndex = useChatStore((s) => s.hoveredCitationIndex);
+  const hoveredFromPanel = useChatStore((s) => s.hoveredFromPanel);
   const setHoveredCitationIndex = useChatStore((s) => s.setHoveredCitationIndex);
+  const scrollToCitation = useChatStore((s) => s.scrollToCitation);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to hovered citation and expand its parent group
+  // Auto-scroll to hovered citation in side panel when hovering a chip in chat
   useEffect(() => {
-    if (hoveredCitationIndex === null || !containerRef.current) return;
+    if (hoveredCitationIndex === null || hoveredFromPanel || !containerRef.current) return;
     const el = containerRef.current.querySelector(`[data-citation-index="${hoveredCitationIndex}"]`);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else {
-      // Citation may be in a collapsed group — expand it
+      // Citation may be in a collapsed group — expand it then scroll
       for (const group of groups) {
         const allIndices = [
           ...group.chapters.map((ch) => ch.index),
@@ -192,16 +309,15 @@ const GroupedSourcesView = ({
             next.delete(group.theirstoryId);
             return next;
           });
-          // Scroll after re-render
           requestAnimationFrame(() => {
             const elAfter = containerRef.current?.querySelector(`[data-citation-index="${hoveredCitationIndex}"]`);
-            elAfter?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            elAfter?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           });
           break;
         }
       }
     }
-  }, [hoveredCitationIndex, groups, collapsed]);
+  }, [hoveredCitationIndex, hoveredFromPanel, groups, collapsed]);
 
   const toggleCollapse = (id: string) => {
     setCollapsed((prev) => {
@@ -238,6 +354,21 @@ const GroupedSourcesView = ({
         if (!hasContent) return null;
         const isCollapsed = collapsed.has(group.theirstoryId);
         const itemCount = group.chapters.length + group.ungroupedClips.length;
+
+        // Collect all items for chronological sorting within the folder
+        const allItems: { type: 'chapter'; item: Citation & { clips: Citation[] } }[] | { type: 'clip'; item: Citation }[] = [];
+        const chronologicalItems: ({ kind: 'chapter'; chapter: Citation & { clips: Citation[] } } | { kind: 'clip'; clip: Citation })[] = [];
+        for (const ch of group.chapters) {
+          chronologicalItems.push({ kind: 'chapter', chapter: ch });
+        }
+        for (const cl of group.ungroupedClips) {
+          chronologicalItems.push({ kind: 'clip', clip: cl });
+        }
+        chronologicalItems.sort((a, b) => {
+          const aTime = a.kind === 'chapter' ? a.chapter.startTime : a.clip.startTime;
+          const bTime = b.kind === 'chapter' ? b.chapter.startTime : b.clip.startTime;
+          return aTime - bTime;
+        });
 
         return (
           <Box key={group.theirstoryId} sx={{ borderBottom: '2px solid', borderColor: 'divider' }}>
@@ -281,18 +412,16 @@ const GroupedSourcesView = ({
                 <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.3 }}>
                   {highlightSearchText(group.interviewTitle, filterTerm)}
                 </Typography>
-                {isCollapsed && (
-                  <Typography variant="caption" color="text.secondary">
-                    {itemCount} source{itemCount !== 1 ? 's' : ''}
-                  </Typography>
-                )}
+                <Typography variant="caption" color="text.secondary">
+                  {itemCount} source{itemCount !== 1 ? 's' : ''}
+                </Typography>
               </Box>
             </Box>
 
-            {!isCollapsed && (
-              <>
-                {/* Chapters with nested clips */}
-                {group.chapters.map((chapter) => (
+            {!isCollapsed && chronologicalItems.map((entry) => {
+              if (entry.kind === 'chapter') {
+                const chapter = entry.chapter;
+                return (
                   <Box key={`ch-${chapter.startTime}`}>
                     {/* Chapter row */}
                     <Box
@@ -311,9 +440,12 @@ const GroupedSourcesView = ({
                         ...highlightSx(chapter.index),
                       }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                        <CitationBadge index={chapter.index} isChapter />
+                        <CitationBadge index={chapter.index} isChapter onClick={(e) => { e.stopPropagation(); scrollToCitation(chapter.index); }} />
                         <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
                           {highlightSearchText(chapter.sectionTitle, filterTerm)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                          {formatTime(chapter.startTime)}–{formatTime(chapter.endTime)}
                         </Typography>
                       </Box>
                       <ExpandableText text={chapter.transcription} highlight={filterTerm} />
@@ -339,19 +471,22 @@ const GroupedSourcesView = ({
                           ...highlightSx(clip.index),
                         }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                          <CitationBadge index={clip.index} isChapter={false} />
-                          <Typography variant="caption" color="text.secondary">
-                            {highlightSearchText(clip.speaker, filterTerm)} &middot; {formatTime(clip.startTime)}
+                          <CitationBadge index={clip.index} isChapter={false} onClick={(e) => { e.stopPropagation(); scrollToCitation(clip.index); }} />
+                          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                            {highlightSearchText(clip.speaker, filterTerm)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                            {formatTime(clip.startTime)}–{formatTime(clip.endTime)}
                           </Typography>
                         </Box>
                         <ExpandableText text={clip.transcription} highlight={filterTerm} />
                       </Box>
                     ))}
                   </Box>
-                ))}
-
-                {/* Ungrouped clips (not within any chapter) */}
-                {group.ungroupedClips.map((clip) => (
+                );
+              } else {
+                const clip = entry.clip;
+                return (
                   <Box
                     key={`uclip-${clip.startTime}-${clip.index}`}
                     data-citation-index={clip.index}
@@ -369,16 +504,20 @@ const GroupedSourcesView = ({
                       ...highlightSx(clip.index),
                     }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                      <CitationBadge index={clip.index} isChapter={false} />
-                      <Typography variant="caption" color="text.secondary">
-                        {highlightSearchText(clip.speaker, filterTerm)} &middot; {formatTime(clip.startTime)}
+                      <CitationBadge index={clip.index} isChapter={false} onClick={(e) => { e.stopPropagation(); scrollToCitation(clip.index); }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                        {highlightSearchText(clip.speaker, filterTerm)}
+                        {clip.sectionTitle && <> &middot; {highlightSearchText(clip.sectionTitle, filterTerm)}</>}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                        {formatTime(clip.startTime)}–{formatTime(clip.endTime)}
                       </Typography>
                     </Box>
                     <ExpandableText text={clip.transcription} highlight={filterTerm} />
                   </Box>
-                ))}
-              </>
-            )}
+                );
+              }
+            })}
           </Box>
         );
       })}
@@ -391,30 +530,29 @@ export const SidePanelRecordingView = () => {
   const previousMode = useChatStore((s) => s.previousMode);
   const activeCitationSiblings = useChatStore((s) => s.activeCitationSiblings);
   const citationOpenedViaChip = useChatStore((s) => s.citationOpenedViaChip);
+  const sidePanelDetailView = useChatStore((s) => s.sidePanelDetailView);
+  const setSidePanelDetailView = useChatStore((s) => s.setSidePanelDetailView);
   const goBack = useChatStore((s) => s.goBack);
   const openTranscript = useChatStore((s) => s.openTranscript);
   const setActiveCitation = useChatStore((s) => s.setActiveCitation);
   const videoRef = useRef<MuxPlayerElement>(null);
   const hasSiblings = activeCitationSiblings.length > 1;
-  // Tab 0 = All Sources, Tab 1 = Source
-  // If opened via chip click, go straight to Source; if auto-opened after streaming, show All Sources
-  const [tabIndex, setTabIndex] = useState(citationOpenedViaChip ? 1 : (hasSiblings ? 0 : 1));
   const [filterTerm, setFilterTerm] = useState('');
+  const [listMode, setListMode] = useState<'recording' | 'number'>('recording');
 
+  // Sync video time when active citation changes
   useEffect(() => {
     if (videoRef.current && activeCitation) {
       videoRef.current.currentTime = activeCitation.startTime;
     }
-    // When citation changes after mount (user clicked a chip), go to Source tab
-    if (citationOpenedViaChip) {
-      setTabIndex(1);
-    }
-  }, [activeCitation, citationOpenedViaChip]);
+  }, [activeCitation]);
 
-  // Reset filter when switching tabs
+  // Reset filter when switching to list
   useEffect(() => {
-    setFilterTerm('');
-  }, [tabIndex]);
+    if (!sidePanelDetailView) {
+      setFilterTerm('');
+    }
+  }, [sidePanelDetailView]);
 
   const filteredCitations = useMemo(() => {
     const q = filterTerm.trim().toLowerCase();
@@ -433,65 +571,35 @@ export const SidePanelRecordingView = () => {
 
   const handleSelectCitation = (citation: Citation) => {
     setActiveCitation(citation, activeCitationSiblings);
-    setTabIndex(1);
+    setSidePanelDetailView(true);
   };
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      {previousMode === 'search' && (
-        <Button
-          size="small"
-          startIcon={<ArrowBackIcon />}
-          onClick={goBack}
-          sx={{ textTransform: 'none', justifyContent: 'flex-start', px: 2, py: 1 }}>
-          Back to results
-        </Button>
-      )}
+  const handleBackToSources = () => {
+    setSidePanelDetailView(false);
+  };
 
-      {hasSiblings && (
-        <Tabs
-          value={tabIndex}
-          onChange={(_, v) => setTabIndex(v)}
-          sx={{ px: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Tab
-            label={`All Sources (${activeCitationSiblings.length})`}
-            sx={{ textTransform: 'none', minHeight: 40, py: 0 }}
-          />
-          <Tab label="Source" sx={{ textTransform: 'none', minHeight: 40, py: 0 }} />
-        </Tabs>
-      )}
+  // Detail view — single source with video player
+  if (sidePanelDetailView) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {previousMode === 'search' ? (
+          <Button
+            size="small"
+            startIcon={<ArrowBackIcon />}
+            onClick={goBack}
+            sx={{ textTransform: 'none', justifyContent: 'flex-start', px: 2, py: 1 }}>
+            Back to results
+          </Button>
+        ) : hasSiblings ? (
+          <Button
+            size="small"
+            startIcon={<ArrowBackIcon />}
+            onClick={handleBackToSources}
+            sx={{ textTransform: 'none', justifyContent: 'flex-start', px: 2, py: 1 }}>
+            Back to sources ({activeCitationSiblings.length})
+          </Button>
+        ) : null}
 
-      {/* All Sources tab */}
-      {tabIndex === 0 && hasSiblings && (
-        <Box>
-          <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
-            <TextField
-              size="small"
-              fullWidth
-              placeholder="Filter sources..."
-              value={filterTerm}
-              onChange={(e) => setFilterTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-              sx={{ bgcolor: colors.background.default, borderRadius: '8px' }}
-            />
-          </Box>
-          <GroupedSourcesView
-            citations={filteredCitations}
-            siblings={activeCitationSiblings}
-            filterTerm={filterTerm}
-            onSelectCitation={handleSelectCitation}
-          />
-        </Box>
-      )}
-
-      {/* Source tab */}
-      {tabIndex === 1 && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 }}>
           <Box sx={{ borderRadius: 2, overflow: 'hidden', bgcolor: colors.common.black }}>
             <MuxPlayer
@@ -545,6 +653,65 @@ export const SidePanelRecordingView = () => {
             Open Full Transcript
           </Button>
         </Box>
+      </Box>
+    );
+  }
+
+  // List view — all sources with filter
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0, overflow: 'auto' }}>
+      <Box sx={{ px: 2, pt: 1.5, pb: 1, borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, zIndex: 3, bgcolor: colors.background.paper }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Typography variant="subtitle2" fontWeight={600}>
+            Sources ({activeCitationSiblings.length})
+          </Typography>
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={listMode}
+            onChange={(_, val) => { if (val) setListMode(val); }}
+            sx={{ height: 28 }}>
+            <ToggleButton value="recording" sx={{ px: 1, py: 0, textTransform: 'none', fontSize: '0.7rem' }}>
+              <Tooltip title="Group by recording">
+                <FolderIcon sx={{ fontSize: 16 }} />
+              </Tooltip>
+            </ToggleButton>
+            <ToggleButton value="number" sx={{ px: 1, py: 0, textTransform: 'none', fontSize: '0.7rem' }}>
+              <Tooltip title="Sort by citation number">
+                <FormatListNumberedIcon sx={{ fontSize: 16 }} />
+              </Tooltip>
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder="Filter sources..."
+          value={filterTerm}
+          onChange={(e) => setFilterTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+          sx={{ bgcolor: colors.background.default, borderRadius: '8px' }}
+        />
+      </Box>
+      {listMode === 'recording' ? (
+        <GroupedSourcesView
+          citations={filteredCitations}
+          siblings={activeCitationSiblings}
+          filterTerm={filterTerm}
+          onSelectCitation={handleSelectCitation}
+        />
+      ) : (
+        <NumberedSourcesView
+          citations={filteredCitations}
+          filterTerm={filterTerm}
+          onSelectCitation={handleSelectCitation}
+        />
       )}
     </Box>
   );

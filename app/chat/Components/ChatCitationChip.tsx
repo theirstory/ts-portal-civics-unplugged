@@ -10,6 +10,7 @@ import { colors } from '@/lib/theme';
 type Props = {
   citation: Citation;
   siblings?: Citation[];
+  messageId?: string;
 };
 
 function formatTime(seconds: number): string {
@@ -18,13 +19,16 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export const ChatCitationChip = ({ citation, siblings }: Props) => {
+export const ChatCitationChip = ({ citation, siblings, messageId }: Props) => {
   const setActiveCitation = useChatStore((s) => s.setActiveCitation);
   const setHoveredCitationIndex = useChatStore((s) => s.setHoveredCitationIndex);
   const hoveredCitationIndex = useChatStore((s) => s.hoveredCitationIndex);
+  const activeAssistantMessageId = useChatStore((s) => s.activeAssistantMessageId);
   const { onCitationClick } = useChatContext();
 
-  const isHighlighted = hoveredCitationIndex === citation.index;
+  // Only highlight if this chip belongs to the active assistant message (or no scoping)
+  const isHighlighted = hoveredCitationIndex === citation.index &&
+    (!activeAssistantMessageId || !messageId || activeAssistantMessageId === messageId);
 
   const tooltipContent = citation.isChapterSynopsis
     ? `Chapter Summary — "${citation.interviewTitle}" · ${citation.sectionTitle}`

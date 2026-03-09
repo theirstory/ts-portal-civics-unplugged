@@ -52,21 +52,18 @@ function hasSignificantOverlap(a: string, b: string): boolean {
 }
 
 function deduplicateCitations(citations: Citation[]): Citation[] {
-  // First pass: exact start_time dedup
-  const seenTimes = new Set<number>();
-  const timeDeduped: Citation[] = [];
-  for (const c of citations) {
-    if (seenTimes.has(c.startTime)) continue;
-    seenTimes.add(c.startTime);
-    timeDeduped.push(c);
-  }
-
-  // Second pass: content overlap dedup
   const result: Citation[] = [];
-  for (const c of timeDeduped) {
-    const isDuplicate = result.some((existing) =>
-      hasSignificantOverlap(existing.transcription, c.transcription),
-    );
+  for (const c of citations) {
+    const isDuplicate = result.some((existing) => {
+      // Same interview, overlapping time ranges (within 2 seconds)
+      if (existing.theirstoryId === c.theirstoryId) {
+        const timeOverlap =
+          existing.startTime <= c.endTime + 2 && c.startTime <= existing.endTime + 2;
+        if (timeOverlap) return true;
+      }
+      // Content overlap
+      return hasSignificantOverlap(existing.transcription, c.transcription);
+    });
     if (!isDuplicate) {
       result.push(c);
     }
@@ -141,6 +138,8 @@ export async function retrieveChunksForSearch(
       undefined,
       undefined,
       CHAT_RETURN_PROPS,
+      0.6,
+      1.0,
     );
   } else {
     response = await hybridSearch(
@@ -151,6 +150,8 @@ export async function retrieveChunksForSearch(
       undefined,
       undefined,
       CHAT_RETURN_PROPS,
+      0.6,
+      1.0,
     );
   }
 
