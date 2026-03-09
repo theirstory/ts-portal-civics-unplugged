@@ -26,6 +26,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import MuxPlayer from '@mux/mux-player-react';
 import MuxPlayerElement from '@mux/mux-player';
 import { useChatStore } from '@/app/stores/useChatStore';
+import { useChatContext } from '@/app/chat/ChatContext';
 import { colors } from '@/lib/theme';
 import { Transcription, Section, Word } from '@/types/transcription';
 import { TextSelectionPopover } from './TextSelectionPopover';
@@ -267,7 +268,9 @@ const TranscriptSection = ({
 export const SidePanelTranscriptView = () => {
   const transcriptCitation = useChatStore((s) => s.transcriptCitation);
   const previousMode = useChatStore((s) => s.previousMode);
-  const goBack = useChatStore((s) => s.goBack);
+  const storeGoBack = useChatStore((s) => s.goBack);
+  const { onGoBack } = useChatContext();
+  const goBack = onGoBack ?? storeGoBack;
 
   const [data, setData] = useState<TranscriptData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -579,7 +582,7 @@ export const SidePanelTranscriptView = () => {
           <Tooltip title="Open in new tab">
             <IconButton
               size="small"
-              onClick={() => window.open(`/story/${storyId}?t=${highlightStart}`, '_blank')}
+              onClick={() => window.open(`/story/${storyId}?start=${highlightStart}`, '_blank')}
               sx={{ ml: 'auto' }}>
               <OpenInNewIcon fontSize="small" />
             </IconButton>

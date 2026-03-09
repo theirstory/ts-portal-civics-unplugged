@@ -1,11 +1,13 @@
 'use client';
 
 import React, { memo, useState } from 'react';
-import { Box, IconButton, Tooltip } from '@mui/material';
+import { Box, Button, IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import { ChatMessage as ChatMessageType } from '@/types/chat';
 import { ChatMessageContent } from './ChatMessageContent';
+import { useChatContext } from '@/app/chat/ChatContext';
 import { colors } from '@/lib/theme';
 
 type Props = {
@@ -15,6 +17,8 @@ type Props = {
 export const ChatMessage = memo(({ message }: Props) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
+  const { onViewSources } = useChatContext();
+  const hasSources = !isUser && message.citations && message.citations.length > 0;
 
   const formatTimeChicago = (seconds: number): string => {
     const m = Math.floor(seconds / 60);
@@ -84,18 +88,37 @@ export const ChatMessage = memo(({ message }: Props) => {
         )}
       </Box>
       {!isUser && message.content && (
-        <Tooltip title={copied ? 'Copied!' : 'Copy response'} arrow>
-          <IconButton
-            size="small"
-            onClick={handleCopy}
-            sx={{ mt: 0.5, color: colors.text.secondary }}>
-            {copied ? (
-              <CheckIcon sx={{ fontSize: 16 }} />
-            ) : (
-              <ContentCopyIcon sx={{ fontSize: 16 }} />
-            )}
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+          <Tooltip title={copied ? 'Copied!' : 'Copy response'} arrow>
+            <IconButton
+              size="small"
+              onClick={handleCopy}
+              sx={{ color: colors.text.secondary }}>
+              {copied ? (
+                <CheckIcon sx={{ fontSize: 16 }} />
+              ) : (
+                <ContentCopyIcon sx={{ fontSize: 16 }} />
+              )}
+            </IconButton>
+          </Tooltip>
+          {hasSources && onViewSources && (
+            <Button
+              size="small"
+              startIcon={<FormatListBulletedIcon sx={{ fontSize: 14 }} />}
+              onClick={() => onViewSources(message.citations!)}
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.75rem',
+                color: colors.text.secondary,
+                py: 0.25,
+                px: 1,
+                minHeight: 0,
+                '&:hover': { bgcolor: colors.grey[100] },
+              }}>
+              View {message.citations!.length} source{message.citations!.length !== 1 ? 's' : ''}
+            </Button>
+          )}
+        </Box>
       )}
     </Box>
   );

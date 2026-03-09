@@ -4,6 +4,7 @@ import React from 'react';
 import { Box, Tooltip } from '@mui/material';
 import { Citation } from '@/types/chat';
 import { useChatStore } from '@/app/stores/useChatStore';
+import { useChatContext } from '@/app/chat/ChatContext';
 import { colors } from '@/lib/theme';
 
 type Props = {
@@ -21,6 +22,7 @@ export const ChatCitationChip = ({ citation, siblings }: Props) => {
   const setActiveCitation = useChatStore((s) => s.setActiveCitation);
   const setHoveredCitationIndex = useChatStore((s) => s.setHoveredCitationIndex);
   const hoveredCitationIndex = useChatStore((s) => s.hoveredCitationIndex);
+  const { onCitationClick } = useChatContext();
 
   const isHighlighted = hoveredCitationIndex === citation.index;
 
@@ -35,7 +37,11 @@ export const ChatCitationChip = ({ citation, siblings }: Props) => {
         data-citation-index={citation.index}
         onClick={(e: React.MouseEvent) => {
           e.stopPropagation();
-          setActiveCitation(citation, siblings);
+          if (onCitationClick) {
+            onCitationClick(citation);
+          } else {
+            setActiveCitation(citation, siblings);
+          }
         }}
         onMouseEnter={() => setHoveredCitationIndex(citation.index)}
         onMouseLeave={() => setHoveredCitationIndex(null)}

@@ -5,6 +5,7 @@ import { AppTopBar } from '@/components/AppTopBar/AppTopBar';
 import { MainContainer } from './MainContainer';
 import { EmbedGuard } from './EmbedGuard';
 import MaterialUIThemeProvider from '@/components/ThemeProvider';
+import { FloatingChatDrawer } from '@/components/FloatingChatDrawer';
 
 export const metadata: Metadata = {
   title: 'Research Portal',
@@ -26,6 +27,7 @@ export default function RootLayout({
                 <AppTopBar />
               </EmbedGuard>
               {children}
+              <FloatingChatDrawer />
             </MainContainer>
           </Suspense>
         </MaterialUIThemeProvider>

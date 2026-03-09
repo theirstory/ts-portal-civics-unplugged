@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Button, Paper, CircularProgress } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useChatStore } from '@/app/stores/useChatStore';
+import { useChatContext } from '@/app/chat/ChatContext';
 import { Citation } from '@/types/chat';
 
 type SearchType = 'bm25' | 'vector' | 'hybrid';
@@ -23,6 +24,7 @@ export const TextSelectionPopover = ({ containerRef }: Props) => {
   const [selectedText, setSelectedText] = useState('');
   const [activeSearchType, setActiveSearchType] = useState<SearchType | null>(null);
   const setSearchResults = useChatStore((s) => s.setSearchResults);
+  const { onSearchResults } = useChatContext();
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const handleMouseUp = useCallback(() => {
@@ -88,7 +90,11 @@ export const TextSelectionPopover = ({ containerRef }: Props) => {
 
       if (!response.ok) throw new Error('Search failed');
       const data = (await response.json()) as { citations: Citation[] };
-      setSearchResults(data.citations, selectedText, searchType);
+      if (onSearchResults) {
+        onSearchResults(data.citations, selectedText, searchType);
+      } else {
+        setSearchResults(data.citations, selectedText, searchType);
+      }
     } catch (error) {
       console.error('Selection search error:', error);
     } finally {
