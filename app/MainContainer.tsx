@@ -11,12 +11,18 @@ export const MainContainer = ({ children }: { children: React.ReactNode }) => {
   const isEmbed = searchParams.get('embed') === 'true';
   const isStoryPage = pathname.startsWith('/story/');
   const isChatPage = pathname.startsWith('/discover');
+  const isSignupPage = pathname === '/signup';
   return (
     <Box
       id="main-container"
       sx={{
         height: '100dvh',
-        bgcolor: isEmbed ? 'transparent' : isStoryPage || isChatPage ? colors.background.storyPage : colors.background.mainPage,
+        bgcolor:
+          isEmbed || isSignupPage
+            ? 'transparent'
+            : isStoryPage || isChatPage
+              ? colors.background.storyPage
+              : colors.background.mainPage,
         overflow: 'auto',
         overscrollBehaviorY: 'contain',
         display: 'flex',

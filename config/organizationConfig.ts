@@ -90,6 +90,14 @@ export interface ThemeColorsConfig {
 export interface FeaturesConfig {
   chat?: {
     enabled?: boolean;
+    /** LLM provider: "anthropic" | "openai" | "google" | "openai-compatible" */
+    provider?: string;
+    /** Model name override (optional — each provider has a sensible default) */
+    model?: string;
+  };
+  auth?: {
+    enabled?: boolean;
+    requireSitePassword?: boolean;
   };
 }
 
@@ -123,6 +131,8 @@ export const themeColors = config.theme.colors;
 export const nerLabels = config.ner.labels;
 export const nerFallbackColors = config.ner.fallbackColors;
 export const isChatEnabled = config.features?.chat?.enabled ?? false;
+export const isAuthEnabled = config.features?.auth?.enabled ?? false;
+export const requireSitePassword = config.features?.auth?.requireSitePassword ?? false;
 
 const normalize = (value: string) => value?.trim()?.toLowerCase();
 

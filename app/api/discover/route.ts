@@ -1,8 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { retrieveChunksForChat, retrieveAllChapterSynopses } from '@/lib/weaviate/chatRetrieval';
+import { getLLMProvider } from '@/lib/llm';
 import { ChatRequest, Citation } from '@/types/chat';
-
-const anthropic = new Anthropic();
 
 function buildSystemPrompt(allCitations: Citation[]): string {
   const sourcesBlock = allCitations
@@ -91,34 +89,27 @@ export async function POST(request: Request) {
           // Phase 3: Generating response
           controller.enqueue(encoder.encode(sseEvent({ type: 'status', status: 'Generating response...' })));
 
-          const anthropicMessages = messages.map((m) => ({
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          }));
-
-          const anthropicStream = anthropic.messages.stream({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 2048,
-            system: systemPrompt,
-            messages: anthropicMessages,
+          const llm = await getLLMProvider();
+          const textStream = llm.streamChat({
+            systemPrompt,
+            messages: messages.map((m) => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+            })),
+            maxTokens: 2048,
           });
 
-          for await (const event of anthropicStream) {
-            if (
-              event.type === 'content_block_delta' &&
-              event.delta.type === 'text_delta'
-            ) {
-              controller.enqueue(
-                encoder.encode(sseEvent({ type: 'text', content: event.delta.text })),
-              );
-            }
+          for await (const text of textStream) {
+            controller.enqueue(encoder.encode(sseEvent({ type: 'text', content: text })));
           }
 
           controller.enqueue(encoder.encode(sseEvent({ type: 'done' })));
         } catch (err) {
-          console.error('Anthropic streaming error:', err);
+          console.error('LLM streaming error:', err);
           controller.enqueue(
-            encoder.encode(sseEvent({ type: 'text', content: 'Sorry, an error occurred while generating the response.' })),
+            encoder.encode(
+              sseEvent({ type: 'text', content: 'Sorry, an error occurred while generating the response.' }),
+            ),
           );
           controller.enqueue(encoder.encode(sseEvent({ type: 'done' })));
         }
@@ -131,7 +122,7 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
+        Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
       },
     });

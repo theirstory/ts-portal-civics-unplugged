@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Link from 'next/link';
-import { Box, Typography, IconButton, Tooltip } from '@mui/material';
+import { Box, Typography, IconButton, Tooltip, Avatar } from '@mui/material';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
@@ -11,8 +11,9 @@ import { LogoArchive } from '@/app/assets/svg/LogoArchive';
 import { CarouselTopBar } from '../CarouselTopBar/CarouselTopBar';
 import useLayoutState from '@/app/stores/useLayout';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { config, organizationConfig, isChatEnabled } from '@/config/organizationConfig';
+import { config, organizationConfig, isChatEnabled, isAuthEnabled } from '@/config/organizationConfig';
 import { useSemanticSearchStore } from '@/app/stores/useSemanticSearchStore';
+import { useUserStore } from '@/app/stores/useUserStore';
 import { colors } from '@/lib/theme';
 
 export interface NavLink {
@@ -24,23 +25,16 @@ export interface NavLink {
 export const AppTopBar = () => {
   const { setIsTopBarCollapsed, isTopBarCollapsed } = useLayoutState();
   const { collections, loadCollections } = useSemanticSearchStore();
+  const user = useUserStore((s) => s.user);
+  const fetchUser = useUserStore((s) => s.fetchUser);
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isEmbed = searchParams.get('embed') === 'true';
-
-  if (isEmbed) return null;
+  const isSignupPage = pathname === '/signup';
   const isStoryPage = pathname.startsWith('/story/');
   const isChatPage = pathname.startsWith('/discover');
   const isFullScreenPage = isStoryPage || isChatPage;
-  const isHeaderOverlayEnabled = config?.ui?.portalHeaderOverlay?.enabled ?? true;
-  const organizationLogoPath = config.organization.logo?.path?.trim();
-  const shouldUseCustomLogo = Boolean(organizationLogoPath);
-  const logoAlt = config.organization.logo?.alt?.trim() || `${config.organization.displayName} logo`;
-
-  const handleTopBarCollapseToggle = () => {
-    setIsTopBarCollapsed(!isTopBarCollapsed);
-  };
 
   useEffect(() => {
     if (isFullScreenPage) {
@@ -56,7 +50,29 @@ export const AppTopBar = () => {
     }
   }, [collections.length, loadCollections]);
 
+  useEffect(() => {
+    if (isAuthEnabled && !user) fetchUser();
+  }, [user, fetchUser]);
+
   const shouldShowCollectionsLink = collections.length > 1;
+  const userInitials =
+    user?.fullName
+      ?.split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || '?';
+
+  if (isEmbed || isSignupPage) return null;
+
+  const isHeaderOverlayEnabled = config?.ui?.portalHeaderOverlay?.enabled ?? true;
+  const organizationLogoPath = config.organization.logo?.path?.trim();
+  const shouldUseCustomLogo = Boolean(organizationLogoPath);
+  const logoAlt = config.organization.logo?.alt?.trim() || `${config.organization.displayName} logo`;
+
+  const handleTopBarCollapseToggle = () => {
+    setIsTopBarCollapsed(!isTopBarCollapsed);
+  };
 
   return (
     <AppBar
@@ -103,18 +119,26 @@ export const AppTopBar = () => {
               </Box>
             </Link>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1, '& a': { color: config.theme.colors.primary.contrastText, textDecoration: 'none', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', minHeight: 0, opacity: 0.85, transition: 'opacity 0.15s', '&:hover': { opacity: 1 } } }}>
-                <Link href="/">
-                  RECORDINGS
-                </Link>
-                <Link href="/indexes">
-                  INDEXES
-                </Link>
-                {shouldShowCollectionsLink && (
-                  <Link href="/collections">
-                    COLLECTIONS
-                  </Link>
-                )}
+              <Box
+                sx={{
+                  display: { xs: 'flex', md: 'none' },
+                  alignItems: 'center',
+                  gap: 1,
+                  '& a': {
+                    color: config.theme.colors.primary.contrastText,
+                    textDecoration: 'none',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    minHeight: 0,
+                    opacity: 0.85,
+                    transition: 'opacity 0.15s',
+                    '&:hover': { opacity: 1 },
+                  },
+                }}>
+                <Link href="/">RECORDINGS</Link>
+                <Link href="/indexes">INDEXES</Link>
+                {shouldShowCollectionsLink && <Link href="/collections">COLLECTIONS</Link>}
                 {isChatEnabled && (
                   <Box
                     component={Link}
@@ -180,18 +204,25 @@ export const AppTopBar = () => {
                   </Tooltip>
                 </Box>
               )}
-              <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 3, '& a': { color: config.theme.colors.primary.contrastText, textDecoration: 'none', fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', opacity: 0.85, transition: 'opacity 0.15s', '&:hover': { opacity: 1 } } }}>
-                <Link href="/">
-                  RECORDINGS
-                </Link>
-                <Link href="/indexes">
-                  INDEXES
-                </Link>
-                {shouldShowCollectionsLink && (
-                  <Link href="/collections">
-                    COLLECTIONS
-                  </Link>
-                )}
+              <Box
+                sx={{
+                  display: { xs: 'none', md: 'flex' },
+                  alignItems: 'center',
+                  gap: 3,
+                  '& a': {
+                    color: config.theme.colors.primary.contrastText,
+                    textDecoration: 'none',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    opacity: 0.85,
+                    transition: 'opacity 0.15s',
+                    '&:hover': { opacity: 1 },
+                  },
+                }}>
+                <Link href="/">RECORDINGS</Link>
+                <Link href="/indexes">INDEXES</Link>
+                {shouldShowCollectionsLink && <Link href="/collections">COLLECTIONS</Link>}
                 {isChatEnabled && (
                   <Box
                     component={Link}
@@ -227,6 +258,26 @@ export const AppTopBar = () => {
                   TheirStory
                 </a>
               </Typography>
+              {isAuthEnabled && user && (
+                <Tooltip title={user.fullName}>
+                  <Link href="/profile" style={{ textDecoration: 'none' }}>
+                    <Avatar
+                      src={user.avatarUrl || undefined}
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        fontSize: '0.8rem',
+                        bgcolor: 'rgba(255,255,255,0.2)',
+                        color: config.theme.colors.primary.contrastText,
+                        border: `2px solid ${config.theme.colors.primary.contrastText}`,
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
+                      }}>
+                      {userInitials}
+                    </Avatar>
+                  </Link>
+                </Tooltip>
+              )}
             </Box>
           </Box>
           {!isTopBarCollapsed && (
