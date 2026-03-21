@@ -33,7 +33,6 @@ export const StoryTranscriptPanel = ({ isMobile = false }: StoryTranscriptPanelP
     initializeExpandedSections,
     setIsCurrentTimeOutOfView,
     isCurrentTimeOutOfView,
-    targetScrollTime,
   } = useTranscriptPanelStore();
   const { isPlaying, currentTime } = usePlayerStore();
   const { seekAndScroll, scrollToTime } = useTranscriptNavigation();
