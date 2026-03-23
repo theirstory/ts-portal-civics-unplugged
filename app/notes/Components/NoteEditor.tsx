@@ -4,6 +4,8 @@ import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { Box, TextField, Typography, IconButton, Tooltip } from '@mui/material';
 import CodeIcon from '@mui/icons-material/Code';
 import EditNoteIcon from '@mui/icons-material/EditNote';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -75,6 +77,23 @@ export const NoteEditor = () => {
   const skipUpdateRef = useRef(false);
   const [showMarkdown, setShowMarkdown] = useState(false);
   const [markdownDraft, setMarkdownDraft] = useState('');
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  // "?" key opens shortcuts dialog (only when not typing in an input)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (
+        e.key === '?' &&
+        !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName) &&
+        !(e.target as HTMLElement)?.closest('.tiptap')
+      ) {
+        e.preventDefault();
+        setShortcutsOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -212,6 +231,11 @@ export const NoteEditor = () => {
             {showMarkdown ? <EditNoteIcon fontSize="small" /> : <CodeIcon fontSize="small" />}
           </IconButton>
         </Tooltip>
+        <Tooltip title="Keyboard shortcuts (?)">
+          <IconButton size="small" onClick={() => setShortcutsOpen(true)} sx={{ ml: 0.25 }}>
+            <HelpOutlineIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {showMarkdown ? (
@@ -307,6 +331,7 @@ export const NoteEditor = () => {
           </Box>
         </>
       )}
+      <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </Box>
   );
 };
