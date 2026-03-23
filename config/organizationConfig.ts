@@ -99,6 +99,9 @@ export interface FeaturesConfig {
     enabled?: boolean;
     requireSitePassword?: boolean;
   };
+  notes?: {
+    enabled?: boolean;
+  };
 }
 
 export interface AppConfig {
@@ -133,6 +136,7 @@ export const nerFallbackColors = config.ner.fallbackColors;
 export const isChatEnabled = config.features?.chat?.enabled ?? false;
 export const isAuthEnabled = config.features?.auth?.enabled ?? false;
 export const requireSitePassword = config.features?.auth?.requireSitePassword ?? false;
+export const isNotesEnabled = config.features?.notes?.enabled ?? false;
 
 const normalize = (value: string) => value?.trim()?.toLowerCase();
 

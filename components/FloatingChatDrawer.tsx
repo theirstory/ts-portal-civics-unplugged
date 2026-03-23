@@ -153,11 +153,11 @@ export const FloatingChatDrawer = () => {
     }
   }, [open, currentView]);
 
-  // Cmd+K / Ctrl+K
+  // Cmd+J / Ctrl+J
   useEffect(() => {
     if (!shouldShow) return;
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'o') {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
@@ -305,7 +305,7 @@ export const FloatingChatDrawer = () => {
     sendMessage(question);
   };
 
-  const shortcutLabel = isMac ? '⌘K' : 'Ctrl+K';
+  const shortcutLabel = isMac ? '⌘⇧O' : 'Ctrl+Shift+O';
   const searchHighlight = searchFilterTerm.trim() || searchQuery;
   const groups = groupByRecording(filteredSearchResults);
 

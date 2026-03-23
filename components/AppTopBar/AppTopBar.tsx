@@ -11,7 +11,7 @@ import { LogoArchive } from '@/app/assets/svg/LogoArchive';
 import { CarouselTopBar } from '../CarouselTopBar/CarouselTopBar';
 import useLayoutState from '@/app/stores/useLayout';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { config, organizationConfig, isChatEnabled, isAuthEnabled } from '@/config/organizationConfig';
+import { config, organizationConfig, isChatEnabled, isAuthEnabled, isNotesEnabled } from '@/config/organizationConfig';
 import { useSemanticSearchStore } from '@/app/stores/useSemanticSearchStore';
 import { useUserStore } from '@/app/stores/useUserStore';
 import { colors } from '@/lib/theme';
@@ -34,7 +34,8 @@ export const AppTopBar = () => {
   const isSignupPage = pathname === '/signup';
   const isStoryPage = pathname.startsWith('/story/');
   const isChatPage = pathname.startsWith('/discover');
-  const isFullScreenPage = isStoryPage || isChatPage;
+  const isNotesPage = pathname.startsWith('/notes');
+  const isFullScreenPage = isStoryPage || isChatPage || isNotesPage;
 
   useEffect(() => {
     if (isFullScreenPage) {
@@ -138,6 +139,7 @@ export const AppTopBar = () => {
                 }}>
                 <Link href="/">RECORDINGS</Link>
                 <Link href="/indexes">INDEXES</Link>
+                {isNotesEnabled && <Link href="/notes">NOTES</Link>}
                 {shouldShowCollectionsLink && <Link href="/collections">COLLECTIONS</Link>}
                 {isChatEnabled && (
                   <Box
@@ -222,6 +224,7 @@ export const AppTopBar = () => {
                 }}>
                 <Link href="/">RECORDINGS</Link>
                 <Link href="/indexes">INDEXES</Link>
+                {isNotesEnabled && <Link href="/notes">NOTES</Link>}
                 {shouldShowCollectionsLink && <Link href="/collections">COLLECTIONS</Link>}
                 {isChatEnabled && (
                   <Box
