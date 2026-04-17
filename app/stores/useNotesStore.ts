@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { Note, NoteFolder } from '@/types/note';
 
+type TipTapNode = {
+  type: string;
+  attrs?: Record<string, unknown>;
+  content?: TipTapNode[];
+  text?: string;
+  marks?: { type: string; attrs?: Record<string, unknown> }[];
+};
+
 type NotesStore = {
   notes: Note[];
   folders: NoteFolder[];
@@ -19,6 +27,10 @@ type NotesStore = {
   updateFolder: (folderId: string, updates: Partial<NoteFolder>) => Promise<void>;
   deleteFolder: (folderId: string) => Promise<void>;
   setSaving: (saving: boolean) => void;
+  /** Append TipTap JSON nodes to an existing note's content */
+  appendToNote: (noteId: string, nodes: TipTapNode[]) => Promise<void>;
+  /** Create a new note pre-populated with TipTap JSON content */
+  createNoteWithContent: (title: string, nodes: TipTapNode[]) => Promise<Note | null>;
 };
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -188,6 +200,30 @@ export const useNotesStore = create<NotesStore>()(
         } catch {
           get().fetchFolders();
         }
+      },
+
+      appendToNote: async (noteId: string, nodes: TipTapNode[]) => {
+        const note = get().notes.find((n) => n.id === noteId);
+        if (!note) return;
+
+        // Merge nodes into existing content
+        const existing = (note.content as { type?: string; content?: TipTapNode[] }) || {};
+        const existingNodes = existing.content || [];
+        const newContent = {
+          type: 'doc',
+          content: [...existingNodes, ...nodes],
+        };
+
+        await get().updateNote(noteId, { content: newContent as Record<string, unknown> });
+      },
+
+      createNoteWithContent: async (title: string, nodes: TipTapNode[]) => {
+        const note = await get().createNote(title);
+        if (!note) return null;
+
+        const content = { type: 'doc', content: nodes };
+        await get().updateNote(note.id, { content: content as Record<string, unknown> });
+        return note;
       },
 
       setSaving: (saving: boolean) => set({ saving }, false, 'setSaving'),

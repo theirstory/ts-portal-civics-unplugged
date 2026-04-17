@@ -5,19 +5,24 @@ import { Box, Button, IconButton, Tooltip } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import { ChatMessage as ChatMessageType } from '@/types/chat';
 import { ChatMessageContent } from './ChatMessageContent';
 import { useChatContext } from '@/app/discover/ChatContext';
+import { useNotesStore } from '@/app/stores/useNotesStore';
+import { chatResponseToTipTapNodes } from '@/app/notes/utils/chatToNote';
 import { colors } from '@/lib/theme';
 
 type Props = {
   message: ChatMessageType;
 };
 
-export const ChatMessage = memo(({ message }: Props) => {
+export const ChatMessage = memo(({ message, userQuery }: Props & { userQuery?: string }) => {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
+  const [savedAsNote, setSavedAsNote] = useState(false);
   const { onViewSources } = useChatContext();
+  const createNoteWithContent = useNotesStore((s) => s.createNoteWithContent);
   const hasSources = !isUser && message.citations && message.citations.length > 0;
 
   const formatTimeChicago = (seconds: number): string => {
@@ -31,9 +36,7 @@ export const ChatMessage = memo(({ message }: Props) => {
 
     if (message.citations?.length) {
       const citationIndices = Array.from(
-        new Set(
-          Array.from(text.matchAll(/\[(\d+)\]/g)).map((m) => parseInt(m[1], 10))
-        )
+        new Set(Array.from(text.matchAll(/\[(\d+)\]/g)).map((m) => parseInt(m[1], 10))),
       ).sort((a, b) => a - b);
 
       if (citationIndices.length > 0) {
@@ -55,6 +58,17 @@ export const ChatMessage = memo(({ message }: Props) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSaveAsNote = async () => {
+    if (!message.content || savedAsNote) return;
+    const title = userQuery || message.content.slice(0, 60).replace(/\n/g, ' ').trim() || 'Untitled';
+    const nodes = chatResponseToTipTapNodes(message.content, message.citations || []);
+    const note = await createNoteWithContent(title, nodes);
+    if (note) {
+      setSavedAsNote(true);
+      setTimeout(() => setSavedAsNote(false), 3000);
+    }
   };
 
   return (
@@ -81,25 +95,22 @@ export const ChatMessage = memo(({ message }: Props) => {
         {isUser ? (
           message.content
         ) : (
-          <ChatMessageContent
-            content={message.content}
-            citations={message.citations}
-            messageId={message.id}
-          />
+          <ChatMessageContent content={message.content} citations={message.citations} messageId={message.id} />
         )}
       </Box>
       {!isUser && message.content && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
           <Tooltip title={copied ? 'Copied!' : 'Copy response'} arrow>
+            <IconButton size="small" onClick={handleCopy} sx={{ color: colors.text.secondary }}>
+              {copied ? <CheckIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={savedAsNote ? 'Saved to Notes!' : 'Save as Note'} arrow>
             <IconButton
               size="small"
-              onClick={handleCopy}
-              sx={{ color: colors.text.secondary }}>
-              {copied ? (
-                <CheckIcon sx={{ fontSize: 16 }} />
-              ) : (
-                <ContentCopyIcon sx={{ fontSize: 16 }} />
-              )}
+              onClick={handleSaveAsNote}
+              sx={{ color: savedAsNote ? colors.success.main : colors.text.secondary }}>
+              {savedAsNote ? <CheckIcon sx={{ fontSize: 16 }} /> : <NoteAddIcon sx={{ fontSize: 16 }} />}
             </IconButton>
           </Tooltip>
           {hasSources && onViewSources && (

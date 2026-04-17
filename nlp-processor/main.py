@@ -1,7 +1,9 @@
+import asyncio
 import json
 import logging
 import time
 import traceback
+from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Query, HTTPException
@@ -56,7 +58,18 @@ class ProcessRequest(BaseModel):
     collection: Optional[Dict[str, str]] = None
 
 
-app = FastAPI(title="NLP Processor (Chunks + NER)")
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    # Load embeddings eagerly so /health embedding_loaded matches import pipeline expectations.
+    # Otherwise the model only loaded on first /embed or /process-story, and waitForNlpReady
+    # would never succeed (deadlock).
+    logger.info("Loading embedding model at startup...")
+    await asyncio.to_thread(LocalEmbedding.get_model)
+    logger.info("Embedding model loaded.")
+    yield
+
+
+app = FastAPI(title="NLP Processor (Chunks + NER)", lifespan=_lifespan)
 
 
 @app.post("/process-story")

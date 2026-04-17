@@ -1,6 +1,6 @@
 /* globals.css */
 body {
-  font-family: 'Public Sans', sans-serif;
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
 
   margin: 0;
   padding: 0;

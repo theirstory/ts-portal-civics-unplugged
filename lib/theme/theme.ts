@@ -16,7 +16,7 @@ const themeOptions: ThemeOptions = {
   // TYPOGRAPHY
   // ==========================================
   typography: {
-    fontFamily: 'Inter, system-ui, sans-serif',
+    fontFamily: 'var(--font-inter), Inter, system-ui, sans-serif',
     h1: { fontWeight: 700 },
     h2: { fontWeight: 600 },
     h3: { fontWeight: 600 },

@@ -8,7 +8,7 @@ import configData from './config.json';
 
 const isAuthEnabled = configData.features?.auth?.enabled ?? false;
 
-const PUBLIC_PATHS = ['/signup', '/api/auth'];
+const PUBLIC_PATHS = ['/signup', '/api/auth', '/notes/public', '/api/notes/public'];
 
 export function middleware(request: NextRequest) {
   // If auth is disabled, allow everything through

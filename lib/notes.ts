@@ -78,6 +78,19 @@ export async function deleteNote(noteId: string): Promise<boolean> {
   return !error;
 }
 
+export async function getNoteByPublicSlug(slug: string): Promise<Note | null> {
+  const supabase = await getSupabase();
+  const { data, error } = await supabase
+    .from('notes')
+    .select('*')
+    .eq('public_slug', slug)
+    .eq('is_public', true)
+    .single();
+
+  if (error || !data) return null;
+  return mapNote(data);
+}
+
 // --- Folders ---
 
 export async function getFoldersByOwner(ownerId: string): Promise<NoteFolder[]> {

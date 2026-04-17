@@ -9,6 +9,7 @@ import { Citation } from '@/types/chat';
 import { getMuxPlaybackId } from '@/app/utils/converters';
 import { colors } from '@/lib/theme';
 import { highlightSearchText } from '@/app/indexes/highlightSearch';
+import { AddCitationToNote } from './AddCitationToNote';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -112,11 +113,12 @@ export const SidePanelSearchResults = () => {
   const filteredResults = useMemo(() => {
     const q = filterTerm.trim().toLowerCase();
     if (!q) return searchResults;
-    return searchResults.filter((c) =>
-      c.interviewTitle.toLowerCase().includes(q) ||
-      c.sectionTitle.toLowerCase().includes(q) ||
-      c.transcription.toLowerCase().includes(q) ||
-      c.speaker.toLowerCase().includes(q),
+    return searchResults.filter(
+      (c) =>
+        c.interviewTitle.toLowerCase().includes(q) ||
+        c.sectionTitle.toLowerCase().includes(q) ||
+        c.transcription.toLowerCase().includes(q) ||
+        c.speaker.toLowerCase().includes(q),
     );
   }, [searchResults, filterTerm]);
 
@@ -179,94 +181,108 @@ export const SidePanelSearchResults = () => {
 
       {/* Scrollable results */}
       <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
-      {groups.map((group) => {
-        const playbackId = getMuxPlaybackId(group.videoUrl);
-        const thumbnailUrl = playbackId && !group.isAudioFile
-          ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=crop`
-          : null;
-        const isCollapsed = collapsed.has(group.theirstoryId);
+        {groups.map((group) => {
+          const playbackId = getMuxPlaybackId(group.videoUrl);
+          const thumbnailUrl =
+            playbackId && !group.isAudioFile
+              ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=crop`
+              : null;
+          const isCollapsed = collapsed.has(group.theirstoryId);
 
-        return (
-          <Box key={group.theirstoryId} sx={{ borderBottom: '2px solid', borderColor: 'divider' }}>
-            {/* Recording header — sticky + collapsible */}
-            <Box
-              onClick={() => toggleCollapse(group.theirstoryId)}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                px: 2,
-                py: 1.5,
-                bgcolor: colors.grey[50],
-                position: 'sticky',
-                top: 0,
-                zIndex: 2,
-                cursor: 'pointer',
-                borderBottom: '1px solid',
-                borderColor: 'divider',
-                '&:hover': { bgcolor: colors.grey[100] },
-              }}>
-              <ExpandMoreIcon
-                sx={{
-                  fontSize: 20,
-                  transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
-                  transition: 'transform 0.2s',
-                  flexShrink: 0,
-                }}
-              />
-              {thumbnailUrl ? (
-                <Box
-                  component="img"
-                  src={thumbnailUrl}
-                  alt={group.interviewTitle}
-                  sx={{ width: 64, aspectRatio: '16/9', objectFit: 'cover', borderRadius: 1, bgcolor: colors.grey[200], flexShrink: 0 }}
-                />
-              ) : (
-                <Box sx={{ width: 64, aspectRatio: '16/9', bgcolor: colors.grey[200], borderRadius: 1, flexShrink: 0 }} />
-              )}
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.3 }}>
-                  {highlightSearchText(group.interviewTitle, highlightQuery)}
-                </Typography>
-                {isCollapsed && (
-                  <Typography variant="caption" color="text.secondary">
-                    {group.results.length} result{group.results.length !== 1 ? 's' : ''}
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-
-            {/* Results within recording */}
-            {!isCollapsed && group.results.map((citation, idx) => (
+          return (
+            <Box key={group.theirstoryId} sx={{ borderBottom: '2px solid', borderColor: 'divider' }}>
+              {/* Recording header — sticky + collapsible */}
               <Box
-                key={`${citation.startTime}-${idx}`}
-                onClick={() => openTranscript(citation)}
+                onClick={() => toggleCollapse(group.theirstoryId)}
                 sx={{
-                  pl: 2,
-                  pr: 2,
-                  py: 1.25,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  px: 2,
+                  py: 1.5,
+                  bgcolor: colors.grey[50],
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 2,
                   cursor: 'pointer',
-                  borderLeft: `3px solid ${colors.primary.main}`,
-                  '&:hover': { bgcolor: colors.grey[50] },
-                  transition: 'background-color 0.15s',
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
+                  '&:hover': { bgcolor: colors.grey[100] },
                 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {highlightSearchText(citation.speaker, highlightQuery)} &middot;{' '}
-                  {highlightSearchText(citation.sectionTitle, highlightQuery)} &middot;{' '}
-                  {formatTime(citation.startTime)}–{formatTime(citation.endTime)}
-                </Typography>
-                <ExpandableText text={citation.transcription} highlight={highlightQuery} />
+                <ExpandMoreIcon
+                  sx={{
+                    fontSize: 20,
+                    transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s',
+                    flexShrink: 0,
+                  }}
+                />
+                {thumbnailUrl ? (
+                  <Box
+                    component="img"
+                    src={thumbnailUrl}
+                    alt={group.interviewTitle}
+                    sx={{
+                      width: 64,
+                      aspectRatio: '16/9',
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      bgcolor: colors.grey[200],
+                      flexShrink: 0,
+                    }}
+                  />
+                ) : (
+                  <Box
+                    sx={{ width: 64, aspectRatio: '16/9', bgcolor: colors.grey[200], borderRadius: 1, flexShrink: 0 }}
+                  />
+                )}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.3 }}>
+                    {highlightSearchText(group.interviewTitle, highlightQuery)}
+                  </Typography>
+                  {isCollapsed && (
+                    <Typography variant="caption" color="text.secondary">
+                      {group.results.length} result{group.results.length !== 1 ? 's' : ''}
+                    </Typography>
+                  )}
+                </Box>
               </Box>
-            ))}
-          </Box>
-        );
-      })}
 
-      {filteredResults.length === 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 3, textAlign: 'center' }}>
-          No results match your filter.
-        </Typography>
-      )}
+              {/* Results within recording */}
+              {!isCollapsed &&
+                group.results.map((citation, idx) => (
+                  <Box
+                    key={`${citation.startTime}-${idx}`}
+                    onClick={() => openTranscript(citation)}
+                    sx={{
+                      pl: 2,
+                      pr: 2,
+                      py: 1.25,
+                      cursor: 'pointer',
+                      borderLeft: `3px solid ${colors.primary.main}`,
+                      '&:hover': { bgcolor: colors.grey[50] },
+                      transition: 'background-color 0.15s',
+                    }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                        {highlightSearchText(citation.speaker, highlightQuery)} &middot;{' '}
+                        {highlightSearchText(citation.sectionTitle, highlightQuery)} &middot;{' '}
+                        {formatTime(citation.startTime)}–{formatTime(citation.endTime)}
+                      </Typography>
+                      <AddCitationToNote citation={citation} />
+                    </Box>
+                    <ExpandableText text={citation.transcription} highlight={highlightQuery} />
+                  </Box>
+                ))}
+            </Box>
+          );
+        })}
+
+        {filteredResults.length === 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 3, textAlign: 'center' }}>
+            No results match your filter.
+          </Typography>
+        )}
       </Box>
     </Box>
   );

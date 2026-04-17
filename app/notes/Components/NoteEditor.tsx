@@ -1,11 +1,21 @@
 'use client';
 
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { Box, TextField, Typography, IconButton, Tooltip } from '@mui/material';
+import { Box, TextField, Typography, IconButton, Tooltip, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import CodeIcon from '@mui/icons-material/Code';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import ShareIcon from '@mui/icons-material/Share';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import SlideshowIcon from '@mui/icons-material/Slideshow';
 import { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
+import { TranscriptSearchDialog } from './TranscriptSearchDialog';
+import { NoteShareDialog } from './NoteShareDialog';
+import { NoteTextSelectionPopover } from './NoteTextSelectionPopover';
+import { AskArchiveDialog } from './AskArchiveDialog';
+import { AIWriteDialog } from './AIWriteDialog';
+import { PagesPreview, type PdfCustomization } from './PagesPreview';
+import { SlidesPreview, type SlideCustomization } from './SlidesPreview';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -20,9 +30,59 @@ import { Color } from '@tiptap/extension-color';
 import { NoteEditorToolbar } from './NoteEditorToolbar';
 import { ColorPicker } from './ColorPicker';
 import { useNotesStore } from '@/app/stores/useNotesStore';
+import { TranscriptEmbedNode } from '../extensions/TranscriptEmbedNode';
+import { VideoEmbedNode } from '../extensions/VideoEmbedNode';
+import { NoteLinkNode } from '../extensions/NoteLinkNode';
+import { WikiLinkInputRule } from '../extensions/WikiLinkInputRule';
+import { ResizableImageNode } from '../extensions/ResizableImageNode';
 import TurndownService from 'turndown';
+import { exportNoteToPdf } from '../utils/pdfExport';
 
 const turndown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+
+// Turndown rule for transcript embed nodes
+turndown.addRule('transcriptEmbed', {
+  filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'transcript-embed',
+  replacement: (_content, node) => {
+    const el = node as HTMLElement;
+    const speaker = el.getAttribute('speaker') || '';
+    const title = el.getAttribute('interviewtitle') || '';
+    const transcription = el.getAttribute('transcription') || '';
+    return `\n> **${speaker}** — ${title}\n> ${transcription}\n\n`;
+  },
+});
+
+// Turndown rule for video embed nodes
+turndown.addRule('videoEmbed', {
+  filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'video-embed',
+  replacement: (_content, node) => {
+    const el = node as HTMLElement;
+    const title = el.getAttribute('interviewtitle') || '';
+    return `\n[Video: ${title}]\n\n`;
+  },
+});
+
+// Turndown rule for images
+turndown.addRule('image', {
+  filter: 'img',
+  replacement: (_content, node) => {
+    const el = node as HTMLElement;
+    const src = el.getAttribute('src') || '';
+    const alt = el.getAttribute('alt') || '';
+    const title = el.getAttribute('title');
+    return `\n![${alt}](${src}${title ? ` "${title}"` : ''})\n`;
+  },
+});
+
+// Turndown rule for note link nodes
+turndown.addRule('noteLink', {
+  filter: (node) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'note-link',
+  replacement: (_content, node) => {
+    const el = node as HTMLElement;
+    const noteTitle = el.getAttribute('notetitle') || el.textContent || '';
+    return `[[${noteTitle}]]`;
+  },
+});
 
 /** Lightweight markdown → HTML for round-tripping back into TipTap */
 function markdownToHtml(md: string): string {
@@ -75,9 +135,16 @@ export const NoteEditor = () => {
   const saving = useNotesStore((s) => s.saving);
   const activeNote = notes.find((n) => n.id === activeNoteId) || null;
   const skipUpdateRef = useRef(false);
+  const [viewMode, setViewMode] = useState<'edit' | 'pages' | 'slides'>('edit');
   const [showMarkdown, setShowMarkdown] = useState(false);
   const [markdownDraft, setMarkdownDraft] = useState('');
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [transcriptSearchOpen, setTranscriptSearchOpen] = useState(false);
+  const [askArchiveOpen, setAskArchiveOpen] = useState(false);
+  const [aiWriteOpen, setAiWriteOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   // "?" key opens shortcuts dialog (only when not typing in an input)
   useEffect(() => {
@@ -128,6 +195,11 @@ export const NoteEditor = () => {
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TextStyle,
       Color,
+      ResizableImageNode,
+      TranscriptEmbedNode,
+      VideoEmbedNode,
+      NoteLinkNode,
+      WikiLinkInputRule,
     ],
     onUpdate: ({ editor }) => {
       if (!activeNoteId || skipUpdateRef.current) return;
@@ -141,20 +213,34 @@ export const NoteEditor = () => {
     },
   });
 
+  // Sync URL when active note changes
+  useEffect(() => {
+    if (!activeNoteId) return;
+    const currentPath = window.location.pathname;
+    const targetPath = `/notes/${activeNoteId}`;
+    if (currentPath !== targetPath) {
+      window.history.replaceState(null, '', targetPath);
+    }
+  }, [activeNoteId]);
+
   // Load content when active note changes
+  // Deferred via queueMicrotask to avoid flushSync-inside-lifecycle warning
+  // (TipTap's ReactNodeViewRenderer calls flushSync internally)
   useEffect(() => {
     if (!editor || !activeNote) return;
-    const currentContent = JSON.stringify(editor.getJSON());
-    const noteContent = JSON.stringify(activeNote.content);
-    if (currentContent !== noteContent && Object.keys(activeNote.content).length > 0) {
-      skipUpdateRef.current = true;
-      editor.commands.setContent(activeNote.content);
-      skipUpdateRef.current = false;
-    } else if (Object.keys(activeNote.content).length === 0) {
-      skipUpdateRef.current = true;
-      editor.commands.clearContent();
-      skipUpdateRef.current = false;
-    }
+    queueMicrotask(() => {
+      const currentContent = JSON.stringify(editor.getJSON());
+      const noteContent = JSON.stringify(activeNote.content);
+      if (currentContent !== noteContent && Object.keys(activeNote.content).length > 0) {
+        skipUpdateRef.current = true;
+        editor.commands.setContent(activeNote.content);
+        skipUpdateRef.current = false;
+      } else if (Object.keys(activeNote.content).length === 0) {
+        skipUpdateRef.current = true;
+        editor.commands.clearContent();
+        skipUpdateRef.current = false;
+      }
+    });
     // Only run when activeNoteId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeNoteId]);
@@ -173,6 +259,49 @@ export const NoteEditor = () => {
       updateNote(activeNoteId, { color });
     },
     [activeNoteId, updateNote],
+  );
+
+  const handleExportPdf = useCallback(
+    async (customization: PdfCustomization) => {
+      if (!editor || exporting) return;
+      setExporting(true);
+      try {
+        await exportNoteToPdf(editor.getJSON(), {
+          title: customization.title,
+          subtitle: customization.subtitle,
+          updatedAt: customization.updatedAt,
+          orgName: customization.orgName,
+          orgLogoPath: customization.showLogo ? customization.orgLogoPath : undefined,
+          primaryColor: customization.accentColor,
+          showLogo: customization.showLogo,
+        });
+      } finally {
+        setExporting(false);
+      }
+    },
+    [editor, exporting],
+  );
+
+  const handleExportSlides = useCallback(
+    async (customization: SlideCustomization) => {
+      if (!editor || exporting) return;
+      setExporting(true);
+      try {
+        const { exportNoteToSlides } = await import('../utils/slideExport');
+        await exportNoteToSlides(editor.getJSON(), {
+          title: customization.title,
+          updatedAt: customization.updatedAt,
+          orgName: customization.orgName,
+          orgLogoPath: customization.orgLogoPath,
+          primaryColor: customization.accentColor,
+          accentColor: customization.accentColor,
+          theme: customization.theme,
+        });
+      } finally {
+        setExporting(false);
+      }
+    },
+    [editor, exporting],
   );
 
   if (!activeNote) {
@@ -202,6 +331,26 @@ export const NoteEditor = () => {
         <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap', ml: 1 }}>
           {saving ? 'Saving...' : 'Saved'}
         </Typography>
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={(_, v) => {
+            if (v) setViewMode(v);
+          }}
+          size="small"
+          sx={{ ml: 1 }}>
+          <ToggleButton value="edit" sx={{ textTransform: 'none', px: 1.5, py: 0.25, fontSize: '0.75rem' }}>
+            Edit
+          </ToggleButton>
+          <ToggleButton value="pages" sx={{ textTransform: 'none', px: 1.5, py: 0.25, fontSize: '0.75rem' }}>
+            <PictureAsPdfIcon sx={{ fontSize: 16, mr: 0.5 }} />
+            Pages
+          </ToggleButton>
+          <ToggleButton value="slides" sx={{ textTransform: 'none', px: 1.5, py: 0.25, fontSize: '0.75rem' }}>
+            <SlideshowIcon sx={{ fontSize: 16, mr: 0.5 }} />
+            Slides
+          </ToggleButton>
+        </ToggleButtonGroup>
         <Tooltip title={showMarkdown ? 'Rich text editor' : 'Edit markdown'}>
           <IconButton
             size="small"
@@ -231,6 +380,11 @@ export const NoteEditor = () => {
             {showMarkdown ? <EditNoteIcon fontSize="small" /> : <CodeIcon fontSize="small" />}
           </IconButton>
         </Tooltip>
+        <Tooltip title="Share note">
+          <IconButton size="small" onClick={() => setShareOpen(true)} sx={{ ml: 0.25 }}>
+            <ShareIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <Tooltip title="Keyboard shortcuts (?)">
           <IconButton size="small" onClick={() => setShortcutsOpen(true)} sx={{ ml: 0.25 }}>
             <HelpOutlineIcon fontSize="small" />
@@ -238,7 +392,23 @@ export const NoteEditor = () => {
         </Tooltip>
       </Box>
 
-      {showMarkdown ? (
+      {viewMode === 'pages' && editor ? (
+        <PagesPreview
+          json={editor.getJSON()}
+          title={activeNote.title}
+          updatedAt={activeNote.updatedAt}
+          onExport={handleExportPdf}
+          exporting={exporting}
+        />
+      ) : viewMode === 'slides' && editor ? (
+        <SlidesPreview
+          json={editor.getJSON()}
+          title={activeNote.title}
+          updatedAt={activeNote.updatedAt}
+          onExport={handleExportSlides}
+          exporting={exporting}
+        />
+      ) : showMarkdown ? (
         /* Markdown editor */
         <Box
           component="textarea"
@@ -269,18 +439,27 @@ export const NoteEditor = () => {
       ) : (
         <>
           {/* Toolbar */}
-          <NoteEditorToolbar editor={editor} />
+          <NoteEditorToolbar
+            editor={editor}
+            onOpenTranscriptSearch={() => setTranscriptSearchOpen(true)}
+            onOpenAskArchive={() => setAskArchiveOpen(true)}
+            onOpenAIWrite={() => setAiWriteOpen(true)}
+          />
 
           {/* Editor */}
           <Box
+            ref={editorContainerRef}
             sx={{
               flex: 1,
               overflow: 'auto',
               px: 2,
               py: 1,
+              position: 'relative',
               '& .tiptap': {
                 outline: 'none',
                 minHeight: '300px',
+                fontSize: '0.9375rem',
+                lineHeight: 1.7,
                 '& p.is-editor-empty:first-of-type::before': {
                   content: 'attr(data-placeholder)',
                   color: '#adb5bd',
@@ -288,13 +467,13 @@ export const NoteEditor = () => {
                   float: 'left',
                   height: 0,
                 },
-                '& h1': { fontSize: '1.75rem', fontWeight: 700, mt: 2, mb: 1 },
-                '& h2': { fontSize: '1.375rem', fontWeight: 600, mt: 1.5, mb: 0.75 },
-                '& h3': { fontSize: '1.125rem', fontWeight: 600, mt: 1, mb: 0.5 },
+                '& h1': { fontSize: '2rem', fontWeight: 700, mt: 2.5, mb: 1, letterSpacing: '-0.01em' },
+                '& h2': { fontSize: '1.5rem', fontWeight: 600, mt: 2, mb: 0.75 },
+                '& h3': { fontSize: '1.25rem', fontWeight: 600, mt: 1.5, mb: 0.5 },
                 '& ul, & ol': { pl: 3 },
                 '& blockquote': {
                   borderLeft: '3px solid',
-                  borderColor: 'divider',
+                  borderColor: 'primary.main',
                   pl: 2,
                   ml: 0,
                   fontStyle: 'italic',
@@ -315,6 +494,14 @@ export const NoteEditor = () => {
                   fontSize: '0.875rem',
                 },
                 '& a': { color: 'primary.main', textDecoration: 'underline' },
+                '& img': {
+                  maxWidth: '100%',
+                  height: 'auto',
+                  borderRadius: 1,
+                  my: 1,
+                  display: 'block',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                },
                 '& ul[data-type="taskList"]': {
                   listStyle: 'none',
                   pl: 0,
@@ -328,10 +515,19 @@ export const NoteEditor = () => {
               },
             }}>
             <EditorContent editor={editor} />
+            <NoteTextSelectionPopover containerRef={editorContainerRef} editor={editor} />
           </Box>
         </>
       )}
       <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <TranscriptSearchDialog
+        open={transcriptSearchOpen}
+        onClose={() => setTranscriptSearchOpen(false)}
+        editor={editor}
+      />
+      <AskArchiveDialog open={askArchiveOpen} onClose={() => setAskArchiveOpen(false)} editor={editor} />
+      <AIWriteDialog open={aiWriteOpen} onClose={() => setAiWriteOpen(false)} editor={editor} />
+      <NoteShareDialog open={shareOpen} onClose={() => setShareOpen(false)} />
     </Box>
   );
 };

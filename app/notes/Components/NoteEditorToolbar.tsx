@@ -15,10 +15,17 @@ import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
 import LinkIcon from '@mui/icons-material/Link';
+import RecordVoiceOverIcon from '@mui/icons-material/RecordVoiceOver';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ImageIcon from '@mui/icons-material/Image';
+import EditNoteIcon from '@mui/icons-material/EditNote';
 import type { Editor } from '@tiptap/react';
 
 interface NoteEditorToolbarProps {
   editor: Editor | null;
+  onOpenTranscriptSearch?: () => void;
+  onOpenAskArchive?: () => void;
+  onOpenAIWrite?: () => void;
 }
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform);
@@ -26,10 +33,32 @@ const mod = isMac ? '\u2318' : 'Ctrl+';
 const shift = isMac ? '\u21E7' : 'Shift+';
 const alt = isMac ? '\u2325' : 'Alt+';
 
-export const NoteEditorToolbar = ({ editor }: NoteEditorToolbarProps) => {
+export const NoteEditorToolbar = ({
+  editor,
+  onOpenTranscriptSearch,
+  onOpenAskArchive,
+  onOpenAIWrite,
+}: NoteEditorToolbarProps) => {
   if (!editor) return null;
 
   const btnSx = { p: 0.5, borderRadius: 1, minWidth: 0, width: 32, height: 32 };
+
+  const handleImageUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const src = reader.result as string;
+        editor.chain().focus().setImage({ src }).run();
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
 
   const handleLink = () => {
     if (editor.isActive('link')) {
@@ -200,6 +229,40 @@ export const NoteEditorToolbar = ({ editor }: NoteEditorToolbarProps) => {
           <FormatAlignRightIcon fontSize="small" />
         </IconButton>
       </Tooltip>
+
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+      <Tooltip title="Insert image">
+        <IconButton size="small" onClick={handleImageUpload} sx={btnSx}>
+          <ImageIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+
+      {onOpenTranscriptSearch && (
+        <Tooltip title="Embed from archive">
+          <IconButton size="small" onClick={onOpenTranscriptSearch} sx={btnSx}>
+            <RecordVoiceOverIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+      {onOpenAskArchive && (
+        <Tooltip title="Ask the archive">
+          <IconButton size="small" onClick={onOpenAskArchive} sx={btnSx}>
+            <AutoAwesomeIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+
+      {onOpenAIWrite && (
+        <>
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+          <Tooltip title="Write with AI">
+            <IconButton size="small" onClick={onOpenAIWrite} sx={{ ...btnSx, color: 'primary.main' }}>
+              <EditNoteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </>
+      )}
     </Box>
   );
 };

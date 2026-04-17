@@ -9,6 +9,7 @@ services:
       ENABLE_MODULES: ""
       DEFAULT_VECTORIZER_MODULE: "none"
       CLUSTER_HOSTNAME: "node1"
+      CLUSTER_ADVERTISE_ADDR: "127.0.0.1"
     volumes:
       - weaviate_data:/var/lib/weaviate
     healthcheck:

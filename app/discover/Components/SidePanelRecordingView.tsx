@@ -1,7 +1,16 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Tooltip, ToggleButtonGroup, ToggleButton } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Button,
+  TextField,
+  InputAdornment,
+  Tooltip,
+  ToggleButtonGroup,
+  ToggleButton,
+} from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArticleIcon from '@mui/icons-material/Article';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -15,6 +24,7 @@ import { Citation } from '@/types/chat';
 import { getMuxPlaybackId } from '@/app/utils/converters';
 import { colors } from '@/lib/theme';
 import { highlightSearchText } from '@/app/indexes/highlightSearch';
+import { AddCitationToNote } from './AddCitationToNote';
 
 // Chapter synopses use a teal/green accent; transcript clips use primary blue
 const CHAPTER_COLOR = colors.success.main;
@@ -92,7 +102,11 @@ function groupByRecording(citations: Citation[]): RecordingGroup[] {
     if (!recordingMap.has(id)) {
       recordingMap.set(id, { chapters: [], clips: [] });
       recordingOrder.push(id);
-      recordingMeta.set(id, { interviewTitle: c.interviewTitle, videoUrl: c.videoUrl, isAudioFile: c.isAudioFile ?? false });
+      recordingMeta.set(id, {
+        interviewTitle: c.interviewTitle,
+        videoUrl: c.videoUrl,
+        isAudioFile: c.isAudioFile ?? false,
+      });
     }
     if (c.isChapterSynopsis) {
       recordingMap.get(id)!.chapters.push(c);
@@ -137,7 +151,15 @@ function groupByRecording(citations: Citation[]): RecordingGroup[] {
   });
 }
 
-const CitationBadge = ({ index, isChapter, onClick }: { index: number; isChapter: boolean; onClick?: (e: React.MouseEvent) => void }) => (
+const CitationBadge = ({
+  index,
+  isChapter,
+  onClick,
+}: {
+  index: number;
+  isChapter: boolean;
+  onClick?: (e: React.MouseEvent) => void;
+}) => (
   <Tooltip title={onClick ? 'Scroll to citation in chat' : ''}>
     <Box
       onClick={onClick}
@@ -157,7 +179,10 @@ const CitationBadge = ({ index, isChapter, onClick }: { index: number; isChapter
         ...(onClick && {
           cursor: 'pointer',
           transition: 'transform 0.15s',
-          '&:hover': { transform: 'scale(1.2)', boxShadow: `0 0 0 2px ${colors.background.paper}, 0 0 0 3px ${isChapter ? CHAPTER_COLOR : CLIP_COLOR}` },
+          '&:hover': {
+            transform: 'scale(1.2)',
+            boxShadow: `0 0 0 2px ${colors.background.paper}, 0 0 0 3px ${isChapter ? CHAPTER_COLOR : CLIP_COLOR}`,
+          },
         }),
       }}>
       {index}
@@ -212,9 +237,10 @@ const NumberedSourcesView = ({
         const isChapter = !!citation.isChapterSynopsis;
         const accentColor = isChapter ? CHAPTER_COLOR : CLIP_COLOR;
         const playbackId = getMuxPlaybackId(citation.videoUrl);
-        const thumbnailUrl = playbackId && !citation.isAudioFile
-          ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=crop&time=${Math.floor(citation.startTime)}`
-          : null;
+        const thumbnailUrl =
+          playbackId && !citation.isAudioFile
+            ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=crop&time=${Math.floor(citation.startTime)}`
+            : null;
 
         return (
           <Box
@@ -242,24 +268,58 @@ const NumberedSourcesView = ({
                 component="img"
                 src={thumbnailUrl}
                 alt={citation.interviewTitle}
-                sx={{ width: 64, aspectRatio: '16/9', objectFit: 'cover', borderRadius: 1, bgcolor: colors.grey[200], flexShrink: 0, alignSelf: 'flex-start', mt: 0.25 }}
+                sx={{
+                  width: 64,
+                  aspectRatio: '16/9',
+                  objectFit: 'cover',
+                  borderRadius: 1,
+                  bgcolor: colors.grey[200],
+                  flexShrink: 0,
+                  alignSelf: 'flex-start',
+                  mt: 0.25,
+                }}
               />
             ) : (
-              <Box sx={{ width: 64, aspectRatio: '16/9', bgcolor: colors.grey[200], borderRadius: 1, flexShrink: 0, alignSelf: 'flex-start', mt: 0.25 }} />
+              <Box
+                sx={{
+                  width: 64,
+                  aspectRatio: '16/9',
+                  bgcolor: colors.grey[200],
+                  borderRadius: 1,
+                  flexShrink: 0,
+                  alignSelf: 'flex-start',
+                  mt: 0.25,
+                }}
+              />
             )}
             {/* Content */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                <CitationBadge index={citation.index} isChapter={isChapter} onClick={(e) => { e.stopPropagation(); scrollToCitation(citation.index); }} />
+                <CitationBadge
+                  index={citation.index}
+                  isChapter={isChapter}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    scrollToCitation(citation.index);
+                  }}
+                />
                 <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }} noWrap>
-                  {isChapter
-                    ? <>{highlightSearchText(citation.interviewTitle, filterTerm)} &middot; {highlightSearchText(citation.sectionTitle, filterTerm)}</>
-                    : <>{highlightSearchText(citation.speaker, filterTerm)} &middot; {highlightSearchText(citation.sectionTitle, filterTerm)}</>
-                  }
+                  {isChapter ? (
+                    <>
+                      {highlightSearchText(citation.interviewTitle, filterTerm)} &middot;{' '}
+                      {highlightSearchText(citation.sectionTitle, filterTerm)}
+                    </>
+                  ) : (
+                    <>
+                      {highlightSearchText(citation.speaker, filterTerm)} &middot;{' '}
+                      {highlightSearchText(citation.sectionTitle, filterTerm)}
+                    </>
+                  )}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
                   {formatTime(citation.startTime)}–{formatTime(citation.endTime)}
                 </Typography>
+                <AddCitationToNote citation={citation} />
               </Box>
               <ExpandableText text={citation.transcription} highlight={filterTerm} />
             </Box>
@@ -347,17 +407,23 @@ const GroupedSourcesView = ({
     <Box ref={containerRef}>
       {groups.map((group) => {
         const playbackId = getMuxPlaybackId(group.videoUrl);
-        const thumbnailUrl = playbackId && !group.isAudioFile
-          ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=crop`
-          : null;
+        const thumbnailUrl =
+          playbackId && !group.isAudioFile
+            ? `https://image.mux.com/${playbackId}/thumbnail.jpg?width=320&height=180&fit_mode=crop`
+            : null;
         const hasContent = group.chapters.length > 0 || group.ungroupedClips.length > 0;
         if (!hasContent) return null;
         const isCollapsed = collapsed.has(group.theirstoryId);
         const itemCount = group.chapters.length + group.ungroupedClips.length;
 
         // Collect all items for chronological sorting within the folder
-        const allItems: { type: 'chapter'; item: Citation & { clips: Citation[] } }[] | { type: 'clip'; item: Citation }[] = [];
-        const chronologicalItems: ({ kind: 'chapter'; chapter: Citation & { clips: Citation[] } } | { kind: 'clip'; clip: Citation })[] = [];
+        const allItems:
+          | { type: 'chapter'; item: Citation & { clips: Citation[] } }[]
+          | { type: 'clip'; item: Citation }[] = [];
+        const chronologicalItems: (
+          | { kind: 'chapter'; chapter: Citation & { clips: Citation[] } }
+          | { kind: 'clip'; clip: Citation }
+        )[] = [];
         for (const ch of group.chapters) {
           chronologicalItems.push({ kind: 'chapter', chapter: ch });
         }
@@ -403,10 +469,19 @@ const GroupedSourcesView = ({
                   component="img"
                   src={thumbnailUrl}
                   alt={group.interviewTitle}
-                  sx={{ width: 64, aspectRatio: '16/9', objectFit: 'cover', borderRadius: 1, bgcolor: colors.grey[200], flexShrink: 0 }}
+                  sx={{
+                    width: 64,
+                    aspectRatio: '16/9',
+                    objectFit: 'cover',
+                    borderRadius: 1,
+                    bgcolor: colors.grey[200],
+                    flexShrink: 0,
+                  }}
                 />
               ) : (
-                <Box sx={{ width: 64, aspectRatio: '16/9', bgcolor: colors.grey[200], borderRadius: 1, flexShrink: 0 }} />
+                <Box
+                  sx={{ width: 64, aspectRatio: '16/9', bgcolor: colors.grey[200], borderRadius: 1, flexShrink: 0 }}
+                />
               )}
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle2" fontWeight={700} sx={{ lineHeight: 1.3 }}>
@@ -418,106 +493,128 @@ const GroupedSourcesView = ({
               </Box>
             </Box>
 
-            {!isCollapsed && chronologicalItems.map((entry) => {
-              if (entry.kind === 'chapter') {
-                const chapter = entry.chapter;
-                return (
-                  <Box key={`ch-${chapter.startTime}`}>
-                    {/* Chapter row */}
+            {!isCollapsed &&
+              chronologicalItems.map((entry) => {
+                if (entry.kind === 'chapter') {
+                  const chapter = entry.chapter;
+                  return (
+                    <Box key={`ch-${chapter.startTime}`}>
+                      {/* Chapter row */}
+                      <Box
+                        data-citation-index={chapter.index}
+                        onClick={() => onSelectCitation(chapter)}
+                        onMouseEnter={() => setHoveredCitationIndex(chapter.index, true)}
+                        onMouseLeave={() => setHoveredCitationIndex(null)}
+                        sx={{
+                          pl: 2,
+                          pr: 2,
+                          py: 1.25,
+                          cursor: 'pointer',
+                          borderLeft: `3px solid ${CHAPTER_COLOR}`,
+                          '&:hover': { bgcolor: colors.grey[50] },
+                          transition: 'all 0.15s',
+                          ...highlightSx(chapter.index),
+                        }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                          <CitationBadge
+                            index={chapter.index}
+                            isChapter
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              scrollToCitation(chapter.index);
+                            }}
+                          />
+                          <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
+                            {highlightSearchText(chapter.sectionTitle, filterTerm)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                            {formatTime(chapter.startTime)}–{formatTime(chapter.endTime)}
+                          </Typography>
+                        </Box>
+                        <ExpandableText text={chapter.transcription} highlight={filterTerm} />
+                      </Box>
+
+                      {/* Clips within this chapter */}
+                      {chapter.clips.map((clip) => (
+                        <Box
+                          key={`clip-${clip.startTime}-${clip.index}`}
+                          data-citation-index={clip.index}
+                          onClick={() => onSelectCitation(clip)}
+                          onMouseEnter={() => setHoveredCitationIndex(clip.index, true)}
+                          onMouseLeave={() => setHoveredCitationIndex(null)}
+                          sx={{
+                            pl: 4,
+                            pr: 2,
+                            py: 1,
+                            cursor: 'pointer',
+                            borderLeft: `3px solid ${CLIP_COLOR}`,
+                            ml: 2,
+                            '&:hover': { bgcolor: colors.grey[50] },
+                            transition: 'all 0.15s',
+                            ...highlightSx(clip.index),
+                          }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                            <CitationBadge
+                              index={clip.index}
+                              isChapter={false}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                scrollToCitation(clip.index);
+                              }}
+                            />
+                            <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                              {highlightSearchText(clip.speaker, filterTerm)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                              {formatTime(clip.startTime)}–{formatTime(clip.endTime)}
+                            </Typography>
+                          </Box>
+                          <ExpandableText text={clip.transcription} highlight={filterTerm} />
+                        </Box>
+                      ))}
+                    </Box>
+                  );
+                } else {
+                  const clip = entry.clip;
+                  return (
                     <Box
-                      data-citation-index={chapter.index}
-                      onClick={() => onSelectCitation(chapter)}
-                      onMouseEnter={() => setHoveredCitationIndex(chapter.index, true)}
+                      key={`uclip-${clip.startTime}-${clip.index}`}
+                      data-citation-index={clip.index}
+                      onClick={() => onSelectCitation(clip)}
+                      onMouseEnter={() => setHoveredCitationIndex(clip.index, true)}
                       onMouseLeave={() => setHoveredCitationIndex(null)}
                       sx={{
                         pl: 2,
                         pr: 2,
                         py: 1.25,
                         cursor: 'pointer',
-                        borderLeft: `3px solid ${CHAPTER_COLOR}`,
+                        borderLeft: `3px solid ${CLIP_COLOR}`,
                         '&:hover': { bgcolor: colors.grey[50] },
                         transition: 'all 0.15s',
-                        ...highlightSx(chapter.index),
+                        ...highlightSx(clip.index),
                       }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                        <CitationBadge index={chapter.index} isChapter onClick={(e) => { e.stopPropagation(); scrollToCitation(chapter.index); }} />
-                        <Typography variant="body2" fontWeight={600} sx={{ flex: 1, minWidth: 0 }}>
-                          {highlightSearchText(chapter.sectionTitle, filterTerm)}
+                        <CitationBadge
+                          index={clip.index}
+                          isChapter={false}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            scrollToCitation(clip.index);
+                          }}
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                          {highlightSearchText(clip.speaker, filterTerm)}
+                          {clip.sectionTitle && <> &middot; {highlightSearchText(clip.sectionTitle, filterTerm)}</>}
                         </Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                          {formatTime(chapter.startTime)}–{formatTime(chapter.endTime)}
+                          {formatTime(clip.startTime)}–{formatTime(clip.endTime)}
                         </Typography>
                       </Box>
-                      <ExpandableText text={chapter.transcription} highlight={filterTerm} />
+                      <ExpandableText text={clip.transcription} highlight={filterTerm} />
                     </Box>
-
-                    {/* Clips within this chapter */}
-                    {chapter.clips.map((clip) => (
-                      <Box
-                        key={`clip-${clip.startTime}-${clip.index}`}
-                        data-citation-index={clip.index}
-                        onClick={() => onSelectCitation(clip)}
-                        onMouseEnter={() => setHoveredCitationIndex(clip.index, true)}
-                        onMouseLeave={() => setHoveredCitationIndex(null)}
-                        sx={{
-                          pl: 4,
-                          pr: 2,
-                          py: 1,
-                          cursor: 'pointer',
-                          borderLeft: `3px solid ${CLIP_COLOR}`,
-                          ml: 2,
-                          '&:hover': { bgcolor: colors.grey[50] },
-                          transition: 'all 0.15s',
-                          ...highlightSx(clip.index),
-                        }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                          <CitationBadge index={clip.index} isChapter={false} onClick={(e) => { e.stopPropagation(); scrollToCitation(clip.index); }} />
-                          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-                            {highlightSearchText(clip.speaker, filterTerm)}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                            {formatTime(clip.startTime)}–{formatTime(clip.endTime)}
-                          </Typography>
-                        </Box>
-                        <ExpandableText text={clip.transcription} highlight={filterTerm} />
-                      </Box>
-                    ))}
-                  </Box>
-                );
-              } else {
-                const clip = entry.clip;
-                return (
-                  <Box
-                    key={`uclip-${clip.startTime}-${clip.index}`}
-                    data-citation-index={clip.index}
-                    onClick={() => onSelectCitation(clip)}
-                    onMouseEnter={() => setHoveredCitationIndex(clip.index, true)}
-                    onMouseLeave={() => setHoveredCitationIndex(null)}
-                    sx={{
-                      pl: 2,
-                      pr: 2,
-                      py: 1.25,
-                      cursor: 'pointer',
-                      borderLeft: `3px solid ${CLIP_COLOR}`,
-                      '&:hover': { bgcolor: colors.grey[50] },
-                      transition: 'all 0.15s',
-                      ...highlightSx(clip.index),
-                    }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                      <CitationBadge index={clip.index} isChapter={false} onClick={(e) => { e.stopPropagation(); scrollToCitation(clip.index); }} />
-                      <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-                        {highlightSearchText(clip.speaker, filterTerm)}
-                        {clip.sectionTitle && <> &middot; {highlightSearchText(clip.sectionTitle, filterTerm)}</>}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                        {formatTime(clip.startTime)}–{formatTime(clip.endTime)}
-                      </Typography>
-                    </Box>
-                    <ExpandableText text={clip.transcription} highlight={filterTerm} />
-                  </Box>
-                );
-              }
-            })}
+                  );
+                }
+              })}
           </Box>
         );
       })}
@@ -557,11 +654,12 @@ export const SidePanelRecordingView = () => {
   const filteredCitations = useMemo(() => {
     const q = filterTerm.trim().toLowerCase();
     if (!q) return activeCitationSiblings;
-    return activeCitationSiblings.filter((c) =>
-      c.interviewTitle.toLowerCase().includes(q) ||
-      c.sectionTitle.toLowerCase().includes(q) ||
-      c.transcription.toLowerCase().includes(q) ||
-      c.speaker.toLowerCase().includes(q),
+    return activeCitationSiblings.filter(
+      (c) =>
+        c.interviewTitle.toLowerCase().includes(q) ||
+        c.sectionTitle.toLowerCase().includes(q) ||
+        c.transcription.toLowerCase().includes(q) ||
+        c.speaker.toLowerCase().includes(q),
     );
   }, [activeCitationSiblings, filterTerm]);
 
@@ -620,11 +718,15 @@ export const SidePanelRecordingView = () => {
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {activeCitation.isChapterSynopsis ? (
-                <>Chapter Summary &middot; {activeCitation.sectionTitle} &middot;{' '}
-                  {formatTime(activeCitation.startTime)}–{formatTime(activeCitation.endTime)}</>
+                <>
+                  Chapter Summary &middot; {activeCitation.sectionTitle} &middot; {formatTime(activeCitation.startTime)}
+                  –{formatTime(activeCitation.endTime)}
+                </>
               ) : (
-                <>{activeCitation.speaker} &middot; {activeCitation.sectionTitle} &middot;{' '}
-                  {formatTime(activeCitation.startTime)}–{formatTime(activeCitation.endTime)}</>
+                <>
+                  {activeCitation.speaker} &middot; {activeCitation.sectionTitle} &middot;{' '}
+                  {formatTime(activeCitation.startTime)}–{formatTime(activeCitation.endTime)}
+                </>
               )}
             </Typography>
           </Box>
@@ -636,22 +738,23 @@ export const SidePanelRecordingView = () => {
               p: 2,
               borderLeft: `3px solid ${accentColor}`,
             }}>
-            <Typography
-              variant="body2"
-              sx={{ fontStyle: 'italic', lineHeight: 1.6, color: colors.text.primary }}>
+            <Typography variant="body2" sx={{ fontStyle: 'italic', lineHeight: 1.6, color: colors.text.primary }}>
               &ldquo;{activeCitation.transcription}&rdquo;
             </Typography>
           </Box>
 
-          <Button
-            variant="outlined"
-            size="small"
-            fullWidth
-            startIcon={<ArticleIcon />}
-            onClick={() => openTranscript(activeCitation)}
-            sx={{ textTransform: 'none' }}>
-            Open Full Transcript
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              fullWidth
+              startIcon={<ArticleIcon />}
+              onClick={() => openTranscript(activeCitation)}
+              sx={{ textTransform: 'none' }}>
+              Open Full Transcript
+            </Button>
+            <AddCitationToNote citation={activeCitation} size="medium" />
+          </Box>
         </Box>
       </Box>
     );
@@ -661,7 +764,16 @@ export const SidePanelRecordingView = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Fixed header — outside scroll container */}
-      <Box sx={{ px: 2, pt: 1.5, pb: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: colors.background.paper, flexShrink: 0 }}>
+      <Box
+        sx={{
+          px: 2,
+          pt: 1.5,
+          pb: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: colors.background.paper,
+          flexShrink: 0,
+        }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="subtitle2" fontWeight={600}>
             Sources ({activeCitationSiblings.length})
@@ -670,7 +782,9 @@ export const SidePanelRecordingView = () => {
             size="small"
             exclusive
             value={listMode}
-            onChange={(_, val) => { if (val) setListMode(val); }}
+            onChange={(_, val) => {
+              if (val) setListMode(val);
+            }}
             sx={{ height: 28 }}>
             <ToggleButton value="recording" sx={{ px: 1, py: 0, textTransform: 'none', fontSize: '0.7rem' }}>
               <Tooltip title="Group by recording">

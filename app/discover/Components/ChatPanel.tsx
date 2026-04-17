@@ -46,18 +46,21 @@ export const ChatPanel = () => {
     return result;
   }, [messages]);
 
-  const navigateToPair = useCallback((pairIndex: number) => {
-    const pair = pairs[pairIndex];
-    if (!pair) return;
-    const el = pairRefs.current.get(pair.userMsg.id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    // Update sources panel
-    if (pair.assistantMsg.citations && pair.assistantMsg.citations.length > 0) {
-      showSourcesForMessage(pair.assistantMsg.id);
-    }
-  }, [pairs, showSourcesForMessage]);
+  const navigateToPair = useCallback(
+    (pairIndex: number) => {
+      const pair = pairs[pairIndex];
+      if (!pair) return;
+      const el = pairRefs.current.get(pair.userMsg.id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      // Update sources panel
+      if (pair.assistantMsg.citations && pair.assistantMsg.citations.length > 0) {
+        showSourcesForMessage(pair.assistantMsg.id);
+      }
+    },
+    [pairs, showSourcesForMessage],
+  );
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -73,7 +76,9 @@ export const ChatPanel = () => {
     // Scope to the active assistant message's container so we scroll to the right Q&A pair
     let scope: Element = messagesContainerRef.current;
     if (activeAssistantMessageId) {
-      const msgScope = messagesContainerRef.current.querySelector(`[data-assistant-message-id="${activeAssistantMessageId}"]`);
+      const msgScope = messagesContainerRef.current.querySelector(
+        `[data-assistant-message-id="${activeAssistantMessageId}"]`,
+      );
       if (msgScope) scope = msgScope;
     }
     const el = scope.querySelector(`[data-citation-index="${scrollToCitationIndex}"]`);
@@ -122,17 +127,11 @@ export const ChatPanel = () => {
             flexDirection: 'column',
             gap: 2,
           }}>
-          <Typography
-            variant="h4"
-            fontWeight={600}
-            color={colors.text.primary}
-            sx={{ textAlign: 'center', mb: 1 }}>
+          <Typography variant="h4" fontWeight={600} color={colors.text.primary} sx={{ textAlign: 'center', mb: 1 }}>
             Ask about the interviews
           </Typography>
 
-          <Box
-            component="form"
-            onSubmit={handleSubmit}>
+          <Box component="form" onSubmit={handleSubmit}>
             <TextField
               fullWidth
               multiline
@@ -341,7 +340,7 @@ export const ChatPanel = () => {
                   </Typography>
                 </Box>
               ) : (
-                <ChatMessage message={pair.assistantMsg} />
+                <ChatMessage message={pair.assistantMsg} userQuery={pair.userMsg.content} />
               )}
             </Box>
           </Box>
